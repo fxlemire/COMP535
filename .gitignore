@@ -13,3 +13,6 @@ hs_err_pid*
 
 # intelliJ
 **/.idea
+
+# other
+*.iml
