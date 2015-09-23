@@ -1,5 +1,7 @@
 package socs.network.node;
 
+import socs.network.message.LSA;
+import socs.network.message.LinkDescription;
 import socs.network.util.Configuration;
 
 import java.io.BufferedReader;
@@ -10,13 +12,13 @@ public class Router {
 
   protected LinkStateDatabase lsd;
 
-  RouterDescription rd = new RouterDescription();
+  RouterDescription rd;
 
   //assuming that all routers are with 4 ports
   Link[] ports = new Link[4];
 
   public Router(Configuration config) {
-    rd.simulatedIPAddress = config.getString("socs.network.router.ip");
+    rd = new RouterDescription(Configuration.PROCESS_IP, config.getShort("socs.network.router.port"), config.getString("socs.network.router.ip"));
     lsd = new LinkStateDatabase(rd);
   }
 
@@ -48,8 +50,21 @@ public class Router {
    * <p/>
    * NOTE: this command should not trigger link database synchronization
    */
-  private void processAttach(String processIP, short processPort,
-                             String simulatedIP, short weight) {
+  private void processAttach(String processIP, short processPort, String simulatedIP, short weight) {
+    if (!isValidAttach(processPort, simulatedIP)) {
+      return;
+    }
+
+    RouterDescription routerAttachedDescription = new RouterDescription(processIP, processPort, simulatedIP);
+    Link link = new Link(rd, routerAttachedDescription);
+    boolean isLinkAdded = addLink(link);
+    if (!isLinkAdded) {
+      return;
+    }
+
+    addLinkDescriptionToDatabase(processPort, simulatedIP, weight);
+
+    debugPrintLSD();
 
   }
 
@@ -126,6 +141,58 @@ public class Router {
     } catch (Exception e) {
       e.printStackTrace();
     }
+  }
+
+  private boolean isValidAttach(short processPort, String simulatedIP) {
+    if (processPort == rd.processPortNumber) {
+      System.out.println("[ERROR] The two routers share the same port. Please choose a different port number.");
+      return false;
+    } else if (simulatedIP.equals(rd.simulatedIPAddress)) {
+      System.out.println("[ERROR] The two routers share the same IP address. Please choose a different IP address.");
+      return false;
+    }
+
+    return true;
+  }
+
+  private boolean addLink(Link link) {
+    for (int i = 0; i < ports.length; ++i) {
+      if (ports[i] == null) {
+        ports[i] = link;
+        break;
+      }
+
+      if (i == 3) {
+        System.out.println("[ERROR] Current router is already attached to 4 routers. Disconnect a router and retry.");
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  private void addLinkDescriptionToDatabase(short processPort, String simulatedIP, short weight) {
+    LinkDescription linkDescription = new LinkDescription(simulatedIP, processPort, weight);
+    LSA lsa = lsd._store.get(rd.simulatedIPAddress);
+    boolean isLinkFound = false;
+
+    // check if link description already exists. If so, override.
+    for (int i = 0; i < lsa.links.size(); ++i) {
+      LinkDescription ld = lsa.links.get(i);
+
+      if (ld.linkID.equals(simulatedIP)) {
+        ld = linkDescription;
+        isLinkFound = true;
+      }
+    }
+
+    if (!isLinkFound) {
+      lsa.links.add(linkDescription);
+    }
+  }
+
+  private void debugPrintLSD() {
+    System.out.println(lsd.toString());
   }
 
 }
