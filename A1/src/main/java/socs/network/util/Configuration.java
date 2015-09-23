@@ -9,6 +9,8 @@ import java.io.File;
 
 public class Configuration {
 
+  public final static String PROCESS_IP = "127.0.0.1";
+
   private Config _config = null;
 
   public Configuration(String path) {
