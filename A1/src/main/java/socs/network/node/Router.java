@@ -25,6 +25,14 @@ public class Router {
     lsd = new LinkStateDatabase(rd);
   }
 
+  public RouterDescription getRd() {
+    return rd;
+  }
+
+  public Link[] getPorts() {
+    return ports;
+  }
+
   /**
    * output the shortest path to the given destination ip
    * <p/>
@@ -75,15 +83,14 @@ public class Router {
    * broadcast Hello to neighbors
    */
   private void processStart() {
-    for (int i = 0; i < ports.length; ++i) {
-      if (ports[i] == null) {
+    for (Link link : ports) {
+      if (link == null) {
         break; //empty port
       }
 
-      Link link = ports[i];
       RouterDescription neighbourDescription = link.router1.simulatedIPAddress.equals(rd.simulatedIPAddress) ? link.router2 : link.router1;
 
-      Client clientSocket = new Client(neighbourDescription.processIPAddress, neighbourDescription.processPortNumber);
+      Thread clientSocket = new Client(neighbourDescription, rd);
       clientSocket.start();
     }
   }
@@ -116,7 +123,7 @@ public class Router {
 
   public void terminal() {
     try {
-      Thread t = new Server(rd.processPortNumber);
+      Thread t = new Server(this);
       t.start();
     } catch (IOException e) {
       e.printStackTrace();
@@ -175,7 +182,7 @@ public class Router {
     return true;
   }
 
-  private boolean addLink(Link link) {
+  public boolean addLink(Link link) {
     for (int i = 0; i < ports.length; ++i) {
       if (ports[i] == null) {
         ports[i] = link;
