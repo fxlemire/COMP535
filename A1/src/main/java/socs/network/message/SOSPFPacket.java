@@ -5,6 +5,8 @@ import java.util.Vector;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class SOSPFPacket implements Serializable {
+  public final static short HELLO = 0;
+  public final static short LSU = 1;
 
   //for inter-process communication
   public String srcProcessIP;
