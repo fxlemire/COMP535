@@ -111,7 +111,7 @@ public class Server implements Runnable {
         }
 
         private RouterDescription updateLink(RouterDescription routerAttachedDescription) {
-            routerAttachedDescription = updateWithNeighbourStatus(routerAttachedDescription);
+            routerAttachedDescription = updateStatus(routerAttachedDescription);
 
             if (routerAttachedDescription.getStatus() == RouterStatus.INIT) {
                 boolean isAdded = _router.isLinkExisting(routerAttachedDescription.getProcessPortNumber(), routerAttachedDescription.getSimulatedIPAddress()) ||
@@ -125,7 +125,7 @@ public class Server implements Runnable {
             return routerAttachedDescription;
         }
 
-        private RouterDescription updateWithNeighbourStatus(RouterDescription neighbourDescription) {
+        private RouterDescription updateStatus(RouterDescription neighbourDescription) {
             Link[] ports = _router.getPorts();
 
             for (Link link : ports) {
