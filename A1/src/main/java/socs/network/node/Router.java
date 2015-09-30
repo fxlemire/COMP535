@@ -7,7 +7,6 @@ import socs.network.net.Server;
 import socs.network.util.Configuration;
 
 import java.io.BufferedReader;
-import java.io.IOException;
 import java.io.InputStreamReader;
 
 
