@@ -26,7 +26,7 @@ public class Util {
         try {
             receivedMessage = (SOSPFPacket) inputStream.readObject();
             String messageType = receivedMessage.sospfType == 0 ? "HELLO" : "LINKSTASTEUPDATE";
-            System.out.println("Received " + messageType + " from " + receivedMessage.srcIP);
+            System.out.println("received " + messageType + " from " + receivedMessage.srcIP + ";");
         } catch (ClassNotFoundException e) {
             System.out.println("No message received.");
             e.printStackTrace();

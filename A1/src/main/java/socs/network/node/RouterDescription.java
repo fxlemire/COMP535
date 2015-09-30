@@ -45,6 +45,6 @@ public class RouterDescription {
 
   public void setStatus(RouterStatus status) {
     this.status = status;
-    System.out.println("Set " + simulatedIPAddress + " to " + status);
+    System.out.println("set " + simulatedIPAddress + " state to " + status + ";");
   }
 }

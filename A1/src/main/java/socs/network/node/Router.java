@@ -85,7 +85,7 @@ public class Router {
   private void processStart() {
     for (Link link : ports) {
       if (link == null) {
-        break; //empty port
+        continue; //empty port
       }
 
       RouterDescription neighbourDescription = link.router1.simulatedIPAddress.equals(rd.simulatedIPAddress) ? link.router2 : link.router1;
@@ -110,7 +110,17 @@ public class Router {
    * output the neighbors of the routers
    */
   private void processNeighbors() {
+    int i = 1;
 
+    for (Link link : ports) {
+      if (link == null) {
+        continue; //empty port
+      }
+
+      RouterDescription neighbourDescription = link.router1.simulatedIPAddress.equals(rd.simulatedIPAddress) ? link.router2 : link.router1;
+
+      System.out.println("neighbour " + i++ + ": " + neighbourDescription.getSimulatedIPAddress());
+    }
   }
 
   /**

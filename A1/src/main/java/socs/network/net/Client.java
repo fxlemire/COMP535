@@ -51,7 +51,7 @@ public class Client implements Runnable {
 
     private void sendHello() {
         try {
-            System.out.println("Sending HELLO message to " + _remoteRouterIP + "...");
+            //System.out.println("Sending HELLO message to " + _remoteRouterIP + "...");
             SOSPFPacket message = Util.makeMessage(_rd, _remoteRouterDescription, SOSPFPacket.HELLO);
             _outputStream.writeObject(message);
             _outputStream.flush();
