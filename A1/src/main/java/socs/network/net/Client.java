@@ -7,13 +7,16 @@ import socs.network.node.RouterDescription;
 import socs.network.node.RouterStatus;
 
 import java.io.IOException;
+import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.Socket;
 
-public class Client extends Thread {
-    private Socket _clientSocket;
+public class Client implements Runnable {
+    private ObjectInputStream _inputStream = null;
+    private ObjectOutputStream _outputStream = null;
     private RouterDescription _remoteRouterDescription;
     private RouterDescription _rd;
+    private Socket _clientSocket;
     private String _remoteRouterIP;
 
     public Client(RouterDescription remoteRouter, RouterDescription rd) {
@@ -22,27 +25,36 @@ public class Client extends Thread {
         _remoteRouterIP = _remoteRouterDescription.getSimulatedIPAddress();
 
         try {
-            System.out.println("Connecting to " + _remoteRouterIP);
+            System.out.println("Connecting to " + _remoteRouterIP + "...");
             _clientSocket = new Socket(_remoteRouterDescription.getProcessIPAddress(), _remoteRouterDescription.getProcessPortNumber());
-            System.out.println("Just connected to " + _clientSocket.getRemoteSocketAddress());
+            System.out.println("Just connected to " + _remoteRouterIP + "...");
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        Thread runner = new Thread(this);
+        runner.start();
+    }
+
+    public void run() {
+        try {
+            _outputStream = new ObjectOutputStream(_clientSocket.getOutputStream());
+            sendHello();
+            _inputStream = new ObjectInputStream(_clientSocket.getInputStream());
+            Util.receiveMessage(_inputStream);
+            _remoteRouterDescription.setStatus(RouterStatus.TWO_WAY);
+            sendHello();
         } catch (IOException e) {
             e.printStackTrace();
         }
     }
 
-    public void run() {
-        sendHello();
-        Util.receiveMessage(_clientSocket);
-        _remoteRouterDescription.setStatus(RouterStatus.TWO_WAY);
-        sendHello();
-    }
-
     private void sendHello() {
         try {
             System.out.println("Sending HELLO message to " + _remoteRouterIP + "...");
-            SOSPFPacket message = Util.makeMessage(_rd, _remoteRouterDescription, (short) 0);
-            ObjectOutputStream out = new ObjectOutputStream(_clientSocket.getOutputStream());
-            out.writeObject(message);
+            SOSPFPacket message = Util.makeMessage(_rd, _remoteRouterDescription, SOSPFPacket.HELLO);
+            _outputStream.writeObject(message);
+            _outputStream.flush();
         } catch (IOException e) {
             e.printStackTrace();
         }

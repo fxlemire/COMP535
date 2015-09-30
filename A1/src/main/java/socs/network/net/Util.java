@@ -5,7 +5,6 @@ import socs.network.node.RouterDescription;
 
 import java.io.IOException;
 import java.io.ObjectInputStream;
-import java.net.Socket;
 
 public class Util {
     public static SOSPFPacket makeMessage(RouterDescription local, RouterDescription external, short messageType) {
@@ -14,19 +13,18 @@ public class Util {
         message.srcProcessPort = local.getProcessPortNumber();
         message.srcIP = local.getSimulatedIPAddress();
         message.dstIP = external.getSimulatedIPAddress();
-        message.sospfType = messageType; //HELLO
+        message.sospfType = messageType;
         message.routerID = local.getSimulatedIPAddress();
         message.neighborID = external.getSimulatedIPAddress();
 
         return message;
     }
 
-    public static SOSPFPacket receiveMessage(Socket server) {
+    public static SOSPFPacket receiveMessage(ObjectInputStream inputStream) {
         SOSPFPacket receivedMessage = null;
 
         try {
-            ObjectInputStream in = new ObjectInputStream(server.getInputStream());
-            receivedMessage = (SOSPFPacket) in.readObject();
+            receivedMessage = (SOSPFPacket) inputStream.readObject();
             String messageType = receivedMessage.sospfType == 0 ? "HELLO" : "LINKSTASTEUPDATE";
             System.out.println("Received " + messageType + " from " + receivedMessage.srcIP);
         } catch (ClassNotFoundException e) {

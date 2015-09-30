@@ -1,4 +1,8 @@
-/** Based off of www.tutorialspoint.com/java/java_networking.htm */
+/**
+ * Based off of www.tutorialspoint.com/java/java_networking.htm
+ * and
+ * http://www.mysamplecode.com/2011/12/java-multithreaded-socket-server.html
+ */
 
 package socs.network.net;
 
@@ -9,98 +13,148 @@ import socs.network.node.RouterDescription;
 import socs.network.node.RouterStatus;
 
 import java.io.IOException;
+import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.net.SocketTimeoutException;
 
-public class Server extends Thread {
+public class Server implements Runnable {
     private Router _router;
     private ServerSocket _serverSocket;
 
-    public Server(Router router) throws IOException {
+    public Server(Router router) {
         _router = router;
-        _serverSocket = new ServerSocket(_router.getRd().getProcessPortNumber());
+        Thread runner = new Thread(this);
+        runner.start();
     }
 
     public void run() {
+        try {
+            _serverSocket = new ServerSocket(_router.getRd().getProcessPortNumber());
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
         while (true) {
             try {
                 System.out.println("Waiting for client on port " + _serverSocket.getLocalPort() + "...");
-
-                Socket server = _serverSocket.accept();
-
-                SOSPFPacket receivedMessage = Util.receiveMessage(server);
-
-                RouterDescription routerAttachedDescription = new RouterDescription(
-                        receivedMessage.srcProcessIP,
-                        receivedMessage.srcProcessPort,
-                        receivedMessage.srcIP);
-
-                updateLink(routerAttachedDescription);
-
-                if (routerAttachedDescription.getStatus() == RouterStatus.INIT) {
-                    SOSPFPacket outgoingMessage = Util.makeMessage(_router.getRd(), routerAttachedDescription, (short) 0);
-                    ObjectOutputStream out = new ObjectOutputStream(server.getOutputStream());
-                    out.writeObject(outgoingMessage);
-                }
-            } catch (SocketTimeoutException timeout) {
-                System.out.println("Socket timed out :(");
-                break;
+                Socket clientSocket = _serverSocket.accept();
+                new ClientServiceThread(clientSocket);
             } catch (IOException e) {
                 e.printStackTrace();
                 break;
             }
         }
-    }
 
-    private void updateLink(RouterDescription routerAttachedDescription) {
-        routerAttachedDescription = updateWithNeighbourStatus(routerAttachedDescription);
-
-        if (routerAttachedDescription.getStatus() == RouterStatus.INIT) {
-            addRouterLink(routerAttachedDescription);
+        try {
+            _serverSocket.close();
+            System.out.println("Server stopped.");
+        } catch (IOException e) {
+            e.printStackTrace();
+            System.exit(-1);
         }
     }
 
-    private RouterDescription updateWithNeighbourStatus(RouterDescription neighbourDescription) {
-        Link[] ports = _router.getPorts();
+    private class ClientServiceThread implements Runnable {
+        Socket _clientSocket;
 
-        for (Link link : ports) {
-            if (link == null) {
-                continue; //empty port
+        ClientServiceThread(Socket s) {
+            _clientSocket = s;
+            Thread runner = new Thread(this);
+            runner.start();
+        }
+
+        public void run() {
+            ObjectInputStream inputStream = null;
+            ObjectOutputStream outputStream = null;
+
+            try {
+                inputStream = new ObjectInputStream(_clientSocket.getInputStream());
+                outputStream = new ObjectOutputStream(_clientSocket.getOutputStream());
+
+                while (true) {
+                    try {
+                        SOSPFPacket receivedMessage = Util.receiveMessage(inputStream);
+
+                        RouterDescription routerAttachedDescription = new RouterDescription(
+                                receivedMessage.srcProcessIP,
+                                receivedMessage.srcProcessPort,
+                                receivedMessage.srcIP);
+
+                        updateLink(routerAttachedDescription);
+
+                        if (routerAttachedDescription.getStatus() == RouterStatus.INIT) {
+                            SOSPFPacket outgoingMessage = Util.makeMessage(_router.getRd(), routerAttachedDescription, SOSPFPacket.HELLO);
+                            outputStream.writeObject(outgoingMessage);
+                        }
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                        break;
+                    }
+                }
+            } catch (IOException e) {
+                e.printStackTrace();
+            } finally {
+                try {
+                    inputStream.close();
+                    outputStream.close();
+                    _clientSocket.close();
+                    System.out.println("...Stopped");
+                }
+                catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+
+        private void updateLink(RouterDescription routerAttachedDescription) {
+            routerAttachedDescription = updateWithNeighbourStatus(routerAttachedDescription);
+
+            if (routerAttachedDescription.getStatus() == RouterStatus.INIT) {
+                addRouterLink(routerAttachedDescription);
+            }
+        }
+
+        private RouterDescription updateWithNeighbourStatus(RouterDescription neighbourDescription) {
+            Link[] ports = _router.getPorts();
+
+            for (Link link : ports) {
+                if (link == null) {
+                    continue; //empty port
+                }
+
+                String neighbourIP = neighbourDescription.getSimulatedIPAddress();
+
+                if (link.getRouter1().getSimulatedIPAddress().equals(neighbourIP)) {
+                    neighbourDescription = link.getRouter1();
+                } else if (link.getRouter2().getSimulatedIPAddress().equals(neighbourIP)) {
+                    neighbourDescription = link.getRouter2();
+                } else {
+                    continue;
+                }
+
+                // since the neighbour has been found in the links, it had necessarily an INIT status, so set to TWO_WAY
+                neighbourDescription.setStatus(RouterStatus.TWO_WAY);
+                return neighbourDescription;
             }
 
-            String neighbourIP = neighbourDescription.getSimulatedIPAddress();
-
-            if (link.getRouter1().getSimulatedIPAddress().equals(neighbourIP)) {
-                neighbourDescription = link.getRouter1();
-            } else if (link.getRouter2().getSimulatedIPAddress().equals(neighbourIP)) {
-                neighbourDescription = link.getRouter2();
-            } else {
-                continue;
+            if (neighbourDescription.getStatus() == null) {
+                neighbourDescription.setStatus(RouterStatus.INIT);
             }
 
-            // since the neighbour has been found in the links, it had necessarily an INIT status, so set to TWO_WAY
-            neighbourDescription.setStatus(RouterStatus.TWO_WAY);
             return neighbourDescription;
         }
 
-        if (neighbourDescription.getStatus() == null) {
-            neighbourDescription.setStatus(RouterStatus.INIT);
+        private boolean addRouterLink(RouterDescription routerAttachedDescription) {
+            Link link = new Link(_router.getRd(), routerAttachedDescription);
+
+            boolean isLinkAdded = _router.addLink(link);
+            if (!isLinkAdded) {
+                System.out.println("[ERROR] ROUTER ALREADY CONNECTED TO 4 OTHER ROUTERS. COULD NOT ADD LINK.");
+                return false;
+            }
+
+            return true;
         }
-
-        return neighbourDescription;
-    }
-
-    private boolean addRouterLink(RouterDescription routerAttachedDescription) {
-        Link link = new Link(_router.getRd(), routerAttachedDescription);
-
-        boolean isLinkAdded = _router.addLink(link);
-        if (!isLinkAdded) {
-            System.out.println("[ERROR] ROUTER ALREADY CONNECTED TO 4 OTHER ROUTERS. COULD NOT ADD LINK.");
-            return false;
-        }
-
-        return true;
     }
 }

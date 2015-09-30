@@ -90,8 +90,7 @@ public class Router {
 
       RouterDescription neighbourDescription = link.router1.simulatedIPAddress.equals(rd.simulatedIPAddress) ? link.router2 : link.router1;
 
-      Thread clientSocket = new Client(neighbourDescription, rd);
-      clientSocket.start();
+      new Client(neighbourDescription, rd);
     }
   }
 
@@ -122,12 +121,7 @@ public class Router {
   }
 
   public void terminal() {
-    try {
-      Thread t = new Server(this);
-      t.start();
-    } catch (IOException e) {
-      e.printStackTrace();
-    }
+    new Server(this);
 
     try {
       InputStreamReader isReader = new InputStreamReader(System.in);
