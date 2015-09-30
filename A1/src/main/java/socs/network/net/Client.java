@@ -46,7 +46,7 @@ public class Client implements Runnable {
             _inputStream = new ObjectInputStream(_clientSocket.getInputStream());
             SOSPFPacket message = Util.receiveMessage(_inputStream);
             if (message.sospfType == SOSPFPacket.OVER_BURDENED) {
-                System.out.println("Removing link...");
+                System.out.println("Removing link with router " + message.srcIP + "...");
                 _router.removeLink(_remoteRouterIP);
                 return;
             }

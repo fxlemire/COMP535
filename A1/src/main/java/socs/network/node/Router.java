@@ -73,9 +73,6 @@ public class Router {
     }
 
     addLinkDescriptionToDatabase(processPort, simulatedIP, weight);
-
-    debugPrintLSD();
-
   }
 
   /**
@@ -89,7 +86,11 @@ public class Router {
 
       RouterDescription neighbourDescription = link.router1.simulatedIPAddress.equals(rd.simulatedIPAddress) ? link.router2 : link.router1;
 
-      new Client(neighbourDescription, this);
+      RouterStatus neighbourStatus = neighbourDescription.getStatus();
+
+      if (neighbourStatus != RouterStatus.TWO_WAY) {
+        new Client(neighbourDescription, this);
+      }
     }
   }
 
@@ -118,7 +119,26 @@ public class Router {
 
       RouterDescription neighbourDescription = link.router1.simulatedIPAddress.equals(rd.simulatedIPAddress) ? link.router2 : link.router1;
 
-      System.out.println("neighbour " + i++ + ": " + neighbourDescription.getSimulatedIPAddress());
+      String status = "ABOUT TO CONNECT";
+      RouterStatus rStatus = neighbourDescription.getStatus();
+
+      if (rStatus != null) {
+        switch (rStatus) {
+          case INIT:
+            status = "INIT";
+            break;
+          case TWO_WAY:
+            status = "TWO_WAY";
+            break;
+          case OVER_BURDENED:
+            status = "OVER_BURDENED";
+            break;
+          default:
+            break;
+        }
+      }
+
+      System.out.println("neighbour " + i++ + ": " + neighbourDescription.getSimulatedIPAddress() + " [" + status + "]");
     }
   }
 
