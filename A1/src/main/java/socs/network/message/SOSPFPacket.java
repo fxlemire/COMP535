@@ -5,6 +5,9 @@ import java.util.Vector;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class SOSPFPacket implements Serializable {
+  public final static short HELLO = 0;
+  public final static short LSU = 1;
+  public final static short OVER_BURDENED = 2;
 
   //for inter-process communication
   public String srcProcessIP;
@@ -15,7 +18,7 @@ public class SOSPFPacket implements Serializable {
   public String dstIP;
 
   //common header
-  public short sospfType; //0 - HELLO, 1 - LinkState Update
+  public short sospfType; //0 - HELLO, 1 - LinkState Update, 2 - Over Burdened
   public String routerID;
 
   //used by HELLO message to identify the sender of the message

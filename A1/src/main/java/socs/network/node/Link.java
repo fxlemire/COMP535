@@ -9,4 +9,12 @@ public class Link {
     router1 = r1;
     router2 = r2;
   }
+
+  public RouterDescription getRouter1() {
+    return router1;
+  }
+
+  public RouterDescription getRouter2() {
+    return router2;
+  }
 }

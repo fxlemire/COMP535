@@ -6,8 +6,10 @@ import com.typesafe.config.ConfigValueFactory;
 
 import java.io.File;
 
-
 public class Configuration {
+
+  public final static String PROCESS_IP = "127.0.0.1";
+  private static int SEQUENCE_NUMBER = Integer.MIN_VALUE + 1;
 
   private Config _config = null;
 
@@ -37,5 +39,9 @@ public class Configuration {
 
   public void addEntry(String key, String value) {
     _config = _config.withValue(key, ConfigValueFactory.fromAnyRef(value));
+  }
+
+  public static int getSequenceNumber() {
+    return ++SEQUENCE_NUMBER;
   }
 }
