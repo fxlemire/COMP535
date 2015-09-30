@@ -81,7 +81,7 @@ public class Server implements Runnable {
                                 receivedMessage.srcProcessPort,
                                 receivedMessage.srcIP);
 
-                        updateLink(routerAttachedDescription);
+                        routerAttachedDescription = updateLink(routerAttachedDescription);
 
                         RouterStatus routerAttachedStatus = routerAttachedDescription.getStatus();
 
@@ -110,16 +110,19 @@ public class Server implements Runnable {
             }
         }
 
-        private void updateLink(RouterDescription routerAttachedDescription) {
+        private RouterDescription updateLink(RouterDescription routerAttachedDescription) {
             routerAttachedDescription = updateWithNeighbourStatus(routerAttachedDescription);
 
             if (routerAttachedDescription.getStatus() == RouterStatus.INIT) {
-                boolean isAdded = addRouterLink(routerAttachedDescription);
+                boolean isAdded = _router.isLinkExisting(routerAttachedDescription.getProcessPortNumber(), routerAttachedDescription.getSimulatedIPAddress()) ||
+                        addRouterLink(routerAttachedDescription);
 
                 if (!isAdded) {
                     routerAttachedDescription.setStatus(RouterStatus.OVER_BURDENED);
                 }
             }
+
+            return routerAttachedDescription;
         }
 
         private RouterDescription updateWithNeighbourStatus(RouterDescription neighbourDescription) {
@@ -140,8 +143,28 @@ public class Server implements Runnable {
                     continue;
                 }
 
-                // since the neighbour has been found in the links, it had necessarily an INIT status, so set to TWO_WAY
-                neighbourDescription.setStatus(RouterStatus.TWO_WAY);
+                RouterStatus neighbourStatus = neighbourDescription.getStatus();
+
+                if (neighbourDescription.getStatus() == null) {
+                    // case where "attach" is run on both routers before start. user should not do that, but it is handled
+                    neighbourDescription.setStatus(RouterStatus.INIT);
+                } else {
+                    switch (neighbourStatus) {
+                        case INIT:
+                            neighbourDescription.setStatus(RouterStatus.TWO_WAY);
+                            break;
+                        case TWO_WAY:
+                            System.out.println("Router already has a TWO_WAY status.");
+                            break;
+                        case OVER_BURDENED:
+                            // status over_burdened should not be stored in the links
+                            System.out.println("Something wrong happened, as a router with OVER_BURDENED status should not be linked.");
+                            break;
+                        default:
+                            System.out.println("This should never happen...");
+                    }
+                }
+
                 return neighbourDescription;
             }
 
