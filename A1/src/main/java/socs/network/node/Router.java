@@ -174,11 +174,8 @@ public class Router {
   }
 
   private boolean isValidAttach(short processPort, String simulatedIP) {
-    if (processPort == rd.processPortNumber) {
-      System.out.println("[ERROR] The two routers share the same port. Please choose a different port number.");
-      return false;
-    } else if (simulatedIP.equals(rd.simulatedIPAddress)) {
-      System.out.println("[ERROR] The two routers share the same IP address. Please choose a different IP address.");
+    if (simulatedIP.equals(rd.simulatedIPAddress) && processPort == rd.processPortNumber) {
+      System.out.println("[ERROR] The two routers share the same IP address and port number. Please choose a different IP address or port number.");
       return false;
     } else if (isLinkExisting(processPort, simulatedIP)) {
       System.out.println("[ERROR] The two routers are already linked.");
