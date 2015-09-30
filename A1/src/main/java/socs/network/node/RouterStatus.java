@@ -8,4 +8,5 @@ package socs.network.node;
 public enum RouterStatus {
   INIT,
   TWO_WAY,
+  OVER_BURDENED
 }

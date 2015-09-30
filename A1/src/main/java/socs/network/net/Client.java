@@ -3,6 +3,7 @@
 package socs.network.net;
 
 import socs.network.message.SOSPFPacket;
+import socs.network.node.Router;
 import socs.network.node.RouterDescription;
 import socs.network.node.RouterStatus;
 
@@ -14,14 +15,16 @@ import java.net.Socket;
 public class Client implements Runnable {
     private ObjectInputStream _inputStream = null;
     private ObjectOutputStream _outputStream = null;
+    private Router _router;
     private RouterDescription _remoteRouterDescription;
     private RouterDescription _rd;
     private Socket _clientSocket;
     private String _remoteRouterIP;
 
-    public Client(RouterDescription remoteRouter, RouterDescription rd) {
+    public Client(RouterDescription remoteRouter, Router router) {
         _remoteRouterDescription = remoteRouter;
-        _rd = rd;
+        _router = router;
+        _rd = router.getRd();
         _remoteRouterIP = _remoteRouterDescription.getSimulatedIPAddress();
 
         try {
@@ -41,7 +44,12 @@ public class Client implements Runnable {
             _outputStream = new ObjectOutputStream(_clientSocket.getOutputStream());
             sendHello();
             _inputStream = new ObjectInputStream(_clientSocket.getInputStream());
-            Util.receiveMessage(_inputStream);
+            SOSPFPacket message = Util.receiveMessage(_inputStream);
+            if (message.sospfType == SOSPFPacket.OVER_BURDENED) {
+                System.out.println("Removing link...");
+                _router.removeLink(_remoteRouterIP);
+                return;
+            }
             _remoteRouterDescription.setStatus(RouterStatus.TWO_WAY);
             sendHello();
         } catch (IOException e) {

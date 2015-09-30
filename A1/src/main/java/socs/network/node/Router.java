@@ -90,7 +90,7 @@ public class Router {
 
       RouterDescription neighbourDescription = link.router1.simulatedIPAddress.equals(rd.simulatedIPAddress) ? link.router2 : link.router1;
 
-      new Client(neighbourDescription, rd);
+      new Client(neighbourDescription, this);
     }
   }
 
@@ -181,6 +181,9 @@ public class Router {
     } else if (simulatedIP.equals(rd.simulatedIPAddress)) {
       System.out.println("[ERROR] The two routers share the same IP address. Please choose a different IP address.");
       return false;
+    } else if (isLinkExisting(processPort, simulatedIP)) {
+      System.out.println("[ERROR] The two routers are already linked.");
+      return false;
     }
 
     return true;
@@ -200,6 +203,32 @@ public class Router {
     }
 
     return true;
+  }
+
+  public void removeLink(String ip) {
+    for (int i = 0; i < ports.length; ++i) {
+      if (ports[i] == null) {
+        continue;
+      }
+
+      boolean isLinkToDelete = ports[i].router1.simulatedIPAddress.equals(ip) || ports[i].router2.simulatedIPAddress.equals(ip);
+
+      if (isLinkToDelete) {
+        ports[i] = null;
+      }
+    }
+  }
+
+  public boolean isLinkExisting(short processPort, String simulatedIp) {
+    for (Link link: ports) {
+      if (link != null &&
+              (link.router1.processPortNumber == processPort && link.router1.simulatedIPAddress.equals(simulatedIp) ||
+              link.router2.processPortNumber == processPort && link.router2.simulatedIPAddress.equals(simulatedIp))) {
+        return true;
+      }
+    }
+
+    return false;
   }
 
   private void addLinkDescriptionToDatabase(short processPort, String simulatedIP, short weight) {

@@ -83,8 +83,11 @@ public class Server implements Runnable {
 
                         updateLink(routerAttachedDescription);
 
-                        if (routerAttachedDescription.getStatus() == RouterStatus.INIT) {
-                            SOSPFPacket outgoingMessage = Util.makeMessage(_router.getRd(), routerAttachedDescription, SOSPFPacket.HELLO);
+                        RouterStatus routerAttachedStatus = routerAttachedDescription.getStatus();
+
+                        if (routerAttachedStatus == RouterStatus.INIT || routerAttachedStatus == RouterStatus.OVER_BURDENED) {
+                            final short messageType = routerAttachedStatus == RouterStatus.INIT ? SOSPFPacket.HELLO : SOSPFPacket.OVER_BURDENED;
+                            SOSPFPacket outgoingMessage = Util.makeMessage(_router.getRd(), routerAttachedDescription, messageType);
                             outputStream.writeObject(outgoingMessage);
                         }
                     } catch (Exception e) {
@@ -111,7 +114,11 @@ public class Server implements Runnable {
             routerAttachedDescription = updateWithNeighbourStatus(routerAttachedDescription);
 
             if (routerAttachedDescription.getStatus() == RouterStatus.INIT) {
-                addRouterLink(routerAttachedDescription);
+                boolean isAdded = addRouterLink(routerAttachedDescription);
+
+                if (!isAdded) {
+                    routerAttachedDescription.setStatus(RouterStatus.OVER_BURDENED);
+                }
             }
         }
 
