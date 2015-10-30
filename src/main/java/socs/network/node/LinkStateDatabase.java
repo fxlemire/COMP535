@@ -33,7 +33,7 @@ public class LinkStateDatabase {
     lsa.lsaSeqNumber = Integer.MIN_VALUE;
     LinkDescription ld = new LinkDescription();
     ld.linkID = rd.simulatedIPAddress;
-    ld.portNum = -1;
+    ld.portNum = rd.getProcessPortNumber();
     ld.tosMetrics = 0;
     lsa.links.add(ld);
     return lsa;
