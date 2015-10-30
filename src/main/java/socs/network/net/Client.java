@@ -20,8 +20,11 @@ public class Client implements Runnable {
     private RouterDescription _rd;
     private Socket _clientSocket;
     private String _remoteRouterIP;
+    private Thread _runner;
 
-    public Client(RouterDescription remoteRouter, Router router) {
+    public Thread getRunner() { return _runner; }
+
+    private Client(RouterDescription remoteRouter, Router router) {
         _remoteRouterDescription = remoteRouter;
         _router = router;
         _rd = router.getRd();
@@ -35,8 +38,13 @@ public class Client implements Runnable {
             e.printStackTrace();
         }
 
-        Thread runner = new Thread(this);
-        runner.start();
+        _runner = new Thread(this);
+    }
+
+    public static Client runNonBlocking(RouterDescription remoteRouter, Router router) {
+        Client client = new Client(remoteRouter, router);
+        client.getRunner().start();
+        return client;
     }
 
     public void run() {

@@ -21,11 +21,19 @@ import java.net.Socket;
 public class Server implements Runnable {
     private Router _router;
     private ServerSocket _serverSocket;
+    private Thread _runner;
 
-    public Server(Router router) {
+    public Thread getRunner() { return _runner; }
+
+    private Server(Router router) {
         _router = router;
-        Thread runner = new Thread(this);
-        runner.start();
+        _runner = new Thread(this);
+    }
+
+    public static Server runNonBlocking(Router router) {
+        Server server = new Server(router);
+        server.getRunner().start();
+        return server;
     }
 
     public void run() {

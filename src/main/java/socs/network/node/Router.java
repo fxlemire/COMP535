@@ -89,14 +89,14 @@ public class Router {
       RouterStatus neighbourStatus = neighbourDescription.getStatus();
 
       if (neighbourStatus != RouterStatus.TWO_WAY) {
-        new Client(neighbourDescription, this);
+        Client.runNonBlocking(neighbourDescription, this);
       }
     }
   }
 
   /**
    * attach the link to the remote router, which is identified by the given simulated ip;
-   * to establish the connection via socket, you need to indentify the process IP and process Port;
+   * to establish the connection via socket, you need to identify the process IP and process Port;
    * additionally, weight is the cost to transmitting data through the link
    * <p/>
    * This command does trigger the link database synchronization
@@ -150,7 +150,7 @@ public class Router {
   }
 
   public void terminal() {
-    new Server(this);
+    Server.runNonBlocking(this);
 
     try {
       InputStreamReader isReader = new InputStreamReader(System.in);
