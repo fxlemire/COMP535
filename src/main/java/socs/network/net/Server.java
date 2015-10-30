@@ -47,7 +47,8 @@ public class Server implements Runnable {
             try {
                 System.out.println("Waiting for client on port " + _serverSocket.getLocalPort() + "...");
                 Socket clientSocket = _serverSocket.accept();
-                new ClientServiceThread(clientSocket);
+                ClientServiceThread cst = new ClientServiceThread(clientSocket);
+                cst.getRunner().start();
             } catch (IOException e) {
                 e.printStackTrace();
                 break;
@@ -65,12 +66,14 @@ public class Server implements Runnable {
 
     private class ClientServiceThread implements Runnable {
         Socket _clientSocket;
+        Thread _runner;
 
         ClientServiceThread(Socket s) {
             _clientSocket = s;
-            Thread runner = new Thread(this);
-            runner.start();
+            _runner = new Thread(this);
         }
+
+        public Thread getRunner() { return _runner; }
 
         public void run() {
             ObjectInputStream inputStream = null;
