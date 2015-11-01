@@ -6,6 +6,8 @@
 
 package socs.network.net;
 
+import socs.network.message.LSA;
+import socs.network.message.LinkDescription;
 import socs.network.message.SOSPFPacket;
 import socs.network.node.Link;
 import socs.network.node.Router;
@@ -17,6 +19,9 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.Iterator;
+import java.util.Optional;
+import java.util.Vector;
 
 public class Server implements Runnable {
     private Router _router;
@@ -87,20 +92,49 @@ public class Server implements Runnable {
                     try {
                         SOSPFPacket receivedMessage = Util.receiveMessage(inputStream);
 
-                        RouterDescription routerAttachedDescription = new RouterDescription(
-                                receivedMessage.srcProcessIP,
-                                receivedMessage.srcProcessPort,
-                                receivedMessage.srcIP);
+                        switch (receivedMessage.sospfType) {
+                            case SOSPFPacket.HELLO: {
+                                RouterDescription routerAttachedDescription = new RouterDescription(
+                                        receivedMessage.srcProcessIP,
+                                        receivedMessage.srcProcessPort,
+                                        receivedMessage.srcIP);
 
-                        routerAttachedDescription = updateLink(routerAttachedDescription);
+                                short weight = getLinkWeight(receivedMessage);
 
-                        RouterStatus routerAttachedStatus = routerAttachedDescription.getStatus();
+                                routerAttachedDescription = updateLink(routerAttachedDescription, weight, receivedMessage.lsaArray);
 
-                        if (routerAttachedStatus == RouterStatus.INIT || routerAttachedStatus == RouterStatus.OVER_BURDENED) {
-                            final short messageType = routerAttachedStatus == RouterStatus.INIT ? SOSPFPacket.HELLO : SOSPFPacket.OVER_BURDENED;
-                            SOSPFPacket outgoingMessage = Util.makeMessage(_router.getRd(), routerAttachedDescription, messageType);
-                            outputStream.writeObject(outgoingMessage);
+                                RouterStatus routerAttachedStatus = routerAttachedDescription.getStatus();
+
+                                if (routerAttachedStatus == RouterStatus.INIT || routerAttachedStatus == RouterStatus.OVER_BURDENED) {
+                                    final short messageType = routerAttachedStatus == RouterStatus.INIT ? SOSPFPacket.HELLO : SOSPFPacket.OVER_BURDENED;
+                                    SOSPFPacket outgoingMessage = Util.makeMessage(_router.getRd(), routerAttachedDescription, messageType, _router);
+                                    outputStream.writeObject(outgoingMessage);
+                                }
+
+                                if (routerAttachedStatus == RouterStatus.TWO_WAY) {
+                                    SOSPFPacket outgoingMessage = Util.makeMessage(_router.getRd(), routerAttachedDescription, SOSPFPacket.LSU, _router);
+                                    outputStream.writeObject(outgoingMessage);
+                                    _router.propagateSynchronization(outgoingMessage.lsaInitiator, receivedMessage.srcIP);
+                                }
+                                break;
+                            }
+                            case SOSPFPacket.LSU: {
+                                //get lsa
+                                _router.synchronize(receivedMessage.lsaArray);
+
+                                //propagate to neighbors
+                                _router.propagateSynchronization(receivedMessage.lsaInitiator, receivedMessage.srcIP);
+                                break;
+                            }
+                            case SOSPFPacket.OVER_BURDENED: {
+                                //OVER_BURDENED should not be received by the router
+                                //escalate
+                            }
+                            default: {
+                                System.out.println("Invalid Message Type");
+                            }
                         }
+
                     } catch (Exception e) {
                         e.printStackTrace();
                         break;
@@ -121,12 +155,12 @@ public class Server implements Runnable {
             }
         }
 
-        private RouterDescription updateLink(RouterDescription routerAttachedDescription) {
-            routerAttachedDescription = updateStatus(routerAttachedDescription);
+        private RouterDescription updateLink(RouterDescription routerAttachedDescription, short weight, Vector<LSA> lsaArray) {
+            routerAttachedDescription = updateStatus(routerAttachedDescription, weight, lsaArray);
 
             if (routerAttachedDescription.getStatus() == RouterStatus.INIT) {
-                boolean isAdded = _router.isLinkExisting(routerAttachedDescription.getProcessPortNumber(), routerAttachedDescription.getSimulatedIPAddress()) ||
-                        addRouterLink(routerAttachedDescription);
+                boolean isAdded = !_router.isLinkExisting(routerAttachedDescription.getProcessPortNumber(), routerAttachedDescription.getSimulatedIPAddress()) &&
+                        addRouterLink(routerAttachedDescription, weight);
 
                 if (!isAdded) {
                     routerAttachedDescription.setStatus(RouterStatus.OVER_BURDENED);
@@ -136,7 +170,7 @@ public class Server implements Runnable {
             return routerAttachedDescription;
         }
 
-        private RouterDescription updateStatus(RouterDescription neighbourDescription) {
+        private RouterDescription updateStatus(RouterDescription neighbourDescription, short weight, Vector<LSA> lsaArray) {
             Link[] ports = _router.getPorts();
 
             for (Link link : ports) {
@@ -163,6 +197,8 @@ public class Server implements Runnable {
                     switch (neighbourStatus) {
                         case INIT:
                             neighbourDescription.setStatus(RouterStatus.TWO_WAY);
+                            _router.addLinkDescriptionToDatabase(neighbourDescription, weight);
+                            _router.synchronize(lsaArray);
                             break;
                         case TWO_WAY:
                             System.out.println("Router already has a TWO_WAY status.");
@@ -186,8 +222,8 @@ public class Server implements Runnable {
             return neighbourDescription;
         }
 
-        private boolean addRouterLink(RouterDescription routerAttachedDescription) {
-            Link link = new Link(_router.getRd(), routerAttachedDescription);
+        private boolean addRouterLink(RouterDescription routerAttachedDescription, short weight) {
+            Link link = new Link(_router.getRd(), routerAttachedDescription, weight);
 
             boolean isLinkAdded = _router.addLink(link);
             if (!isLinkAdded) {
@@ -196,6 +232,20 @@ public class Server implements Runnable {
             }
 
             return true;
+        }
+
+        private short getLinkWeight(SOSPFPacket message) {
+            short weight = 0;
+
+            final Optional<LSA> lsaOption = message.lsaArray.stream().filter(l -> l.linkStateID.equals(message.srcIP)).findFirst();
+            if (lsaOption.isPresent()) {
+                Optional<LinkDescription> linkDescription = lsaOption.get().links.stream().findFirst().filter(ld -> ld.linkID.equals(_router.getRd().getSimulatedIPAddress()));
+                if (linkDescription.isPresent()) {
+                    weight = (short) linkDescription.get().tosMetrics;
+                }
+            }
+
+            return weight;
         }
     }
 }

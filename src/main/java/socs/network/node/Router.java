@@ -8,28 +8,39 @@ import socs.network.util.Configuration;
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
+import java.util.Iterator;
+import java.util.Vector;
 
 
 public class Router {
 
-  protected LinkStateDatabase lsd;
+  protected LinkStateDatabase _lsd;
 
-  RouterDescription rd;
+  RouterDescription _rd;
 
-  //assuming that all routers are with 4 ports
-  Link[] ports = new Link[4];
+  //assuming that all routers are with 4 _ports
+  Link[] _ports = new Link[4];
+  Client[] _clients = new Client[4];
 
   public Router(Configuration config) {
-    rd = new RouterDescription(Configuration.PROCESS_IP, config.getShort("socs.network.router.port"), config.getString("socs.network.router.ip"));
-    lsd = new LinkStateDatabase(rd);
+    _rd = new RouterDescription(Configuration.PROCESS_IP, config.getShort("socs.network.router.port"), config.getString("socs.network.router.ip"));
+    _lsd = new LinkStateDatabase(_rd);
+  }
+
+  public Client[] getClients() {
+    return _clients;
+  }
+
+  public LinkStateDatabase getLsd() {
+    return _lsd;
   }
 
   public RouterDescription getRd() {
-    return rd;
+    return _rd;
   }
 
   public Link[] getPorts() {
-    return ports;
+    return _ports;
   }
 
   /**
@@ -66,31 +77,16 @@ public class Router {
     }
 
     RouterDescription routerAttachedDescription = new RouterDescription(processIP, processPort, simulatedIP);
-    Link link = new Link(rd, routerAttachedDescription);
-    boolean isLinkAdded = addLink(link);
-    if (!isLinkAdded) {
-      return;
-    }
-
-    addLinkDescriptionToDatabase(processPort, simulatedIP, weight);
+    Link link = new Link(_rd, routerAttachedDescription, weight);
+    addLink(link);
   }
 
   /**
    * broadcast Hello to neighbors
    */
   private void processStart() {
-    for (Link link : ports) {
-      if (link == null) {
-        continue; //empty port
-      }
-
-      RouterDescription neighbourDescription = link.router1.simulatedIPAddress.equals(rd.simulatedIPAddress) ? link.router2 : link.router1;
-
-      RouterStatus neighbourStatus = neighbourDescription.getStatus();
-
-      if (neighbourStatus != RouterStatus.TWO_WAY) {
-        Client.runNonBlocking(neighbourDescription, this);
-      }
+    for (int i = 0; i < _ports.length; ++i) {
+      initiateConnection(i);
     }
   }
 
@@ -112,12 +108,12 @@ public class Router {
   private void processNeighbors() {
     int i = 1;
 
-    for (Link link : ports) {
+    for (Link link : _ports) {
       if (link == null) {
         continue; //empty port
       }
 
-      RouterDescription neighbourDescription = link.router1.simulatedIPAddress.equals(rd.simulatedIPAddress) ? link.router2 : link.router1;
+      RouterDescription neighbourDescription = link.router1.simulatedIPAddress.equals(_rd.simulatedIPAddress) ? link.router2 : link.router1;
 
       String status = "ABOUT TO CONNECT";
       RouterStatus rStatus = neighbourDescription.getStatus();
@@ -194,7 +190,7 @@ public class Router {
   }
 
   private boolean isValidAttach(short processPort, String simulatedIP) {
-    if (simulatedIP.equals(rd.simulatedIPAddress) && processPort == rd.processPortNumber) {
+    if (simulatedIP.equals(_rd.simulatedIPAddress) && processPort == _rd.processPortNumber) {
       System.out.println("[ERROR] The two routers share the same IP address and port number. Please choose a different IP address or port number.");
       return false;
     } else if (isLinkExisting(processPort, simulatedIP)) {
@@ -206,9 +202,9 @@ public class Router {
   }
 
   public boolean addLink(Link link) {
-    for (int i = 0; i < ports.length; ++i) {
-      if (ports[i] == null) {
-        ports[i] = link;
+    for (int i = 0; i < _ports.length; ++i) {
+      if (_ports[i] == null) {
+        _ports[i] = link;
         break;
       }
 
@@ -222,21 +218,22 @@ public class Router {
   }
 
   public void removeLink(String ip) {
-    for (int i = 0; i < ports.length; ++i) {
-      if (ports[i] == null) {
+    for (int i = 0; i < _ports.length; ++i) {
+      if (_ports[i] == null) {
         continue;
       }
 
-      boolean isLinkToDelete = ports[i].router1.simulatedIPAddress.equals(ip) || ports[i].router2.simulatedIPAddress.equals(ip);
+      boolean isLinkToDelete = _ports[i].router1.simulatedIPAddress.equals(ip) || _ports[i].router2.simulatedIPAddress.equals(ip);
 
       if (isLinkToDelete) {
-        ports[i] = null;
+        _ports[i] = null;
+        _clients[i] = null;
       }
     }
   }
 
   public boolean isLinkExisting(short processPort, String simulatedIp) {
-    for (Link link: ports) {
+    for (Link link: _ports) {
       if (link != null &&
               (link.router1.processPortNumber == processPort && link.router1.simulatedIPAddress.equals(simulatedIp) ||
               link.router2.processPortNumber == processPort && link.router2.simulatedIPAddress.equals(simulatedIp))) {
@@ -247,16 +244,16 @@ public class Router {
     return false;
   }
 
-  private void addLinkDescriptionToDatabase(short processPort, String simulatedIP, short weight) {
-    LinkDescription linkDescription = new LinkDescription(simulatedIP, processPort, weight);
-    LSA lsa = lsd._store.get(rd.simulatedIPAddress);
+  public void addLinkDescriptionToDatabase(RouterDescription remoteRd, short weight) {
+    LinkDescription linkDescription = new LinkDescription(remoteRd.getSimulatedIPAddress(), remoteRd.getProcessPortNumber(), weight);
+    LSA lsa = _lsd._store.get(_rd.simulatedIPAddress);
     boolean isLinkFound = false;
 
     // check if link description already exists. If so, override.
     for (int i = 0; i < lsa.links.size(); ++i) {
       LinkDescription ld = lsa.links.get(i);
 
-      if (ld.linkID.equals(simulatedIP)) {
+      if (ld.linkID.equals(remoteRd.getSimulatedIPAddress())) {
         ld = linkDescription;
         isLinkFound = true;
       }
@@ -264,11 +261,61 @@ public class Router {
 
     if (!isLinkFound) {
       lsa.links.add(linkDescription);
+      ++lsa.lsaSeqNumber;
     }
   }
 
   private void debugPrintLSD() {
-    System.out.println(lsd.toString());
+    System.out.println(_lsd.toString());
+  }
+
+  public void synchronize(Vector<LSA> lsaVector) {
+    Iterator<LSA> lsaIterator = lsaVector.iterator();
+
+    while (lsaIterator.hasNext()) {
+      LSA lsa = lsaIterator.next();
+      if (isLsaOutdated(lsa)) {
+        _lsd._store.put(lsa.linkStateID, lsa);
+      }
+    }
+  }
+
+  private boolean isLsaOutdated(LSA newLsa) {
+    boolean isOutdated = true;
+    if (_lsd._store.containsKey(newLsa.linkStateID) && _lsd._store.get(newLsa.linkStateID).lsaSeqNumber >= newLsa.lsaSeqNumber) {
+      isOutdated = false;
+    }
+    return isOutdated;
+  }
+
+  public void propagateSynchronization(String initiator, String ipToExclude) {
+    for (int i = 0; i < _ports.length; ++i) {
+      if ((_clients[i] != null || initiateConnection(i)) && !_clients[i].getRemoteRouterDescription().getSimulatedIPAddress().equals(ipToExclude)) {
+        _clients[i].propagateSynchronization(initiator);
+      }
+    }
+  }
+
+  private boolean initiateConnection(int i) {
+    boolean isConnectionInitiated = false;
+
+    if (_ports[i] == null) {
+      return isConnectionInitiated; //empty port
+    }
+
+    Link link = _ports[i];
+
+    RouterDescription neighbourDescription = link.router1.simulatedIPAddress.equals(_rd.simulatedIPAddress) ? link.router2 : link.router1;
+
+    RouterStatus neighbourStatus = neighbourDescription.getStatus();
+
+    if (neighbourStatus != RouterStatus.TWO_WAY) {
+      Client client = Client.runNonBlocking(neighbourDescription, this, link);
+      _clients[i] = client;
+      isConnectionInitiated = true;
+    }
+
+    return isConnectionInitiated;
   }
 
 }

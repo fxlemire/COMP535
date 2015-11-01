@@ -18,6 +18,10 @@ public class LinkStateDatabase {
     _store.put(l.linkStateID, l);
   }
 
+  public HashMap<String, LSA> getStore() {
+    return _store;
+  }
+
   /**
    * output the shortest path from this router to the destination with the given IP address
    */

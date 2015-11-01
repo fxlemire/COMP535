@@ -1,13 +1,14 @@
 package socs.network.net;
 
 import socs.network.message.SOSPFPacket;
+import socs.network.node.Router;
 import socs.network.node.RouterDescription;
 
 import java.io.IOException;
 import java.io.ObjectInputStream;
 
 public class Util {
-    public static SOSPFPacket makeMessage(RouterDescription local, RouterDescription external, short messageType) {
+    public static SOSPFPacket makeMessage(RouterDescription local, RouterDescription external, short messageType, Router rd) {
         SOSPFPacket message = new SOSPFPacket();
         message.srcProcessIP = local.getProcessIPAddress();
         message.srcProcessPort = local.getProcessPortNumber();
@@ -16,6 +17,8 @@ public class Util {
         message.sospfType = messageType;
         message.routerID = local.getSimulatedIPAddress();
         message.neighborID = external.getSimulatedIPAddress();
+        rd.getLsd().getStore().forEach((k, v) -> message.lsaArray.addElement(v));
+        message.lsaInitiator = messageType == SOSPFPacket.LSU ? message.srcIP : null;
 
         return message;
     }
