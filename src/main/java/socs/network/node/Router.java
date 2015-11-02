@@ -297,25 +297,16 @@ public class Router {
   }
 
   private boolean initiateConnection(int i) {
-    boolean isConnectionInitiated = false;
-
     if (_ports[i] == null) {
-      return isConnectionInitiated; //empty port
+      return false; //empty port
     }
 
     Link link = _ports[i];
-
     RouterDescription neighbourDescription = link.router1.simulatedIPAddress.equals(_rd.simulatedIPAddress) ? link.router2 : link.router1;
+    Client client = Client.runNonBlocking(neighbourDescription, this, link);
+    _clients[i] = client;
 
-    RouterStatus neighbourStatus = neighbourDescription.getStatus();
-
-    if (neighbourStatus != RouterStatus.TWO_WAY) {
-      Client client = Client.runNonBlocking(neighbourDescription, this, link);
-      _clients[i] = client;
-      isConnectionInitiated = true;
-    }
-
-    return isConnectionInitiated;
+    return true;
   }
 
 }
