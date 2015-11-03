@@ -1,5 +1,6 @@
 package socs.network.net;
 
+import socs.network.message.LSA;
 import socs.network.message.SOSPFPacket;
 import socs.network.node.Router;
 import socs.network.node.RouterDescription;
@@ -17,7 +18,10 @@ public class Util {
         message.sospfType = messageType;
         message.routerID = local.getSimulatedIPAddress();
         message.neighborID = external.getSimulatedIPAddress();
-        rd.getLsd().getStore().forEach((k, v) -> message.lsaArray.addElement(v));
+        rd.getLsd().getStore().forEach((k, v) -> {
+            LSA lsa = new LSA(v);
+            message.lsaArray.add(lsa);
+        });
         message.lsaInitiator = messageType == SOSPFPacket.LSU ? message.srcIP : null;
 
         return message;

@@ -239,7 +239,7 @@ public class Server implements Runnable {
 
             final Optional<LSA> lsaOption = message.lsaArray.stream().filter(l -> l.linkStateID.equals(message.srcIP)).findFirst();
             if (lsaOption.isPresent()) {
-                Optional<LinkDescription> linkDescription = lsaOption.get().links.stream().findFirst().filter(ld -> ld.linkID.equals(_router.getRd().getSimulatedIPAddress()));
+                Optional<LinkDescription> linkDescription = (lsaOption.get().links.stream()).filter(ld -> ld.linkID.equals(_router.getRd().getSimulatedIPAddress())).findFirst();
                 if (linkDescription.isPresent()) {
                     weight = (short) linkDescription.get().tosMetrics;
                 }
