@@ -12,6 +12,7 @@ public class Configuration {
   private static int SEQUENCE_NUMBER = Integer.MIN_VALUE + 1;
 
   private Config _config = null;
+  private static Config _ports = ConfigFactory.parseFile(new File("conf/ports.conf"));
 
   public Configuration(String path) {
     _config = ConfigFactory.parseFile(new File(path));
@@ -35,6 +36,10 @@ public class Configuration {
 
   public double getDouble(String key) {
     return _config.getDouble(key);
+  }
+
+  public static String getPortUser(short port) {
+    return _ports.getString("socs.network.router.port." + port);
   }
 
   public void addEntry(String key, String value) {

@@ -48,7 +48,7 @@ public class Router {
    * <p/>
    * format: source ip address  -> ip address -> ... -> destination ip
    *
-   * @param destinationIP the ip adderss of the destination simulated router
+   * @param destinationIP the ip address of the destination simulated router
    */
   private void processDetect(String destinationIP) {
 
@@ -66,7 +66,7 @@ public class Router {
 
   /**
    * attach the link to the remote router, which is identified by the given simulated ip;
-   * to establish the connection via socket, you need to indentify the process IP and process Port;
+   * to establish the connection via socket, you need to identify the process IP and process Port;
    * additionally, weight is the cost to transmitting data through the link
    * <p/>
    * NOTE: this command should not trigger link database synchronization
@@ -190,15 +190,19 @@ public class Router {
   }
 
   private boolean isValidAttach(short processPort, String simulatedIP) {
+    boolean isValid = false;
+
     if (simulatedIP.equals(_rd.simulatedIPAddress) && processPort == _rd.processPortNumber) {
       System.out.println("[ERROR] The two routers share the same IP address and port number. Please choose a different IP address or port number.");
-      return false;
     } else if (isLinkExisting(processPort, simulatedIP)) {
       System.out.println("[ERROR] The two routers are already linked.");
-      return false;
+    } else if (!Configuration.getPortUser(processPort).equals(simulatedIP)) {
+      System.out.println("[ERROR] Port " + processPort + " already in use by " + Configuration.getPortUser(processPort) + ".");
+    } else {
+      isValid = true;
     }
 
-    return true;
+    return isValid;
   }
 
   public boolean addLink(Link link) {
