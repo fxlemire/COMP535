@@ -62,8 +62,8 @@ public class Util {
     public static void sendMessage(SOSPFPacket message, ObjectOutputStream outputStream) {
         try {
             outputStream.writeObject(message);
-            outputStream.flush();
             outputStream.reset();
+            outputStream.flush();
         } catch (IOException e) {
             e.printStackTrace();
         }
