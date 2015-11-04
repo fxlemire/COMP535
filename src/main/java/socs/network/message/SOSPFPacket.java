@@ -8,6 +8,7 @@ public class SOSPFPacket implements Serializable {
   public final static short HELLO = 0;
   public final static short LSU = 1;
   public final static short OVER_BURDENED = 2;
+  public static int id = 0;
 
   //for inter-process communication
   public String srcProcessIP;
@@ -20,6 +21,7 @@ public class SOSPFPacket implements Serializable {
   //common header
   public short sospfType; //0 - HELLO, 1 - LinkState Update, 2 - Over Burdened
   public String routerID;
+  public int messageId = id++;
 
   //used by HELLO message to identify the sender of the message
   //e.g. when router A sends HELLO to its neighbor, it has to fill this field with its own
@@ -27,6 +29,7 @@ public class SOSPFPacket implements Serializable {
   public String neighborID; //neighbor's simulated IP address
 
   //used by LSAUPDATE
-  public Vector<LSA> lsaArray = null;
+  public Vector<LSA> lsaArray = new Vector<>();
+  public String lsaInitiator = null;
 
 }

@@ -4,10 +4,11 @@ import java.io.Serializable;
 import java.util.LinkedList;
 
 public class LSA implements Serializable {
+  public static int sequenceNumber = 0;
 
   //IP address of the router originate this LSA
   public String linkStateID;
-  public int lsaSeqNumber = Integer.MIN_VALUE;
+  public int lsaSeqNumber = sequenceNumber++;
 
   public LinkedList<LinkDescription> links = new LinkedList<LinkDescription>();
 

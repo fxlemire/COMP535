@@ -18,6 +18,10 @@ public class LinkStateDatabase {
     _store.put(l.linkStateID, l);
   }
 
+  public HashMap<String, LSA> getStore() {
+    return _store;
+  }
+
   /**
    * output the shortest path from this router to the destination with the given IP address
    */
@@ -30,10 +34,9 @@ public class LinkStateDatabase {
   private LSA initLinkStateDatabase() {
     LSA lsa = new LSA();
     lsa.linkStateID = rd.simulatedIPAddress;
-    lsa.lsaSeqNumber = Integer.MIN_VALUE;
     LinkDescription ld = new LinkDescription();
     ld.linkID = rd.simulatedIPAddress;
-    ld.portNum = -1;
+    ld.portNum = rd.getProcessPortNumber();
     ld.tosMetrics = 0;
     lsa.links.add(ld);
     return lsa;
