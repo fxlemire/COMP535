@@ -70,10 +70,13 @@ public class Client implements Runnable {
             _remoteRouterDescription.setStatus(RouterStatus.TWO_WAY);
             _router.addLinkDescriptionToDatabase(_remoteRouterDescription, _link.getWeight());
             sendMessage(SOSPFPacket.HELLO);
-            message = Util.receiveMessage(_inputStream);
 
-            if (message.sospfType == SOSPFPacket.LSU) {
-                Util.synchronizeAndPropagate(message, _router);
+            while (true) {
+                message = Util.receiveMessage(_inputStream);
+
+                if (message.sospfType == SOSPFPacket.LSU) {
+                    Util.synchronizeAndPropagate(message, _router);
+                }
             }
         } catch (IOException e) {
             e.printStackTrace();

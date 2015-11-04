@@ -3,6 +3,7 @@ package socs.network.node;
 import socs.network.message.LSA;
 import socs.network.message.LinkDescription;
 import socs.network.net.Client;
+import socs.network.net.ClientServiceThread;
 import socs.network.net.Server;
 import socs.network.util.Configuration;
 import socs.network.util.Util;
@@ -26,6 +27,7 @@ public class Router {
   Link[] _ports = new Link[4];
   Client[] _clients = new Client[4];
   HashMap<String, Integer> _initiators = new HashMap<String, Integer>();
+  Server _server;
 
   public Router(Configuration config) {
     _rd = new RouterDescription(Configuration.PROCESS_IP, config.getShort("socs.network.router.port"), config.getString("socs.network.router.ip"));
@@ -186,7 +188,7 @@ public class Router {
   }
 
   public void terminal() {
-    Server.runNonBlocking(this);
+    _server = Server.runNonBlocking(this);
 
     try {
       InputStreamReader isReader = new InputStreamReader(System.in);
@@ -332,9 +334,16 @@ public class Router {
   }
 
   public void propagateSynchronization(String initiator, String ipToExclude) {
-    for (int i = 0; i < _ports.length; ++i) {
-      if ((_clients[i] != null || initiateConnection(i)) && !_clients[i].isFor(initiator) && !_clients[i].isFor(ipToExclude)) {
+    for (int i = 0; i < _clients.length; ++i) {
+      if (_clients[i] != null && !_clients[i].isFor(initiator) && !_clients[i].isFor(ipToExclude)) {
         _clients[i].propagateSynchronization(initiator);
+      }
+    }
+
+    ClientServiceThread[] clientServicers = _server.getClientServicers();
+    for (int i = 0; i < clientServicers.length; ++i) {
+      if (clientServicers[i] != null && !clientServicers[i].isFor(initiator) && !clientServicers[i].isFor(ipToExclude)) {
+        clientServicers[i].propagateSynchronization(initiator);
       }
     }
   }
