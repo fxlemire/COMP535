@@ -175,6 +175,9 @@ public class Router {
         } else if (command.equals("neighbors")) {
           //output neighbors
           processNeighbors();
+        } else if (command.equals("lsd")) {
+          //print LSD
+          System.out.print(_lsd.toString());
         } else {
           //invalid command
           break;
@@ -267,10 +270,6 @@ public class Router {
       lsa.links.add(linkDescription);
       ++lsa.lsaSeqNumber;
     }
-  }
-
-  private void debugPrintLSD() {
-    System.out.println(_lsd.toString());
   }
 
   public void synchronize(Vector<LSA> lsaVector) {
