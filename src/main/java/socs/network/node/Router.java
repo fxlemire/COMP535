@@ -5,12 +5,15 @@ import socs.network.message.LinkDescription;
 import socs.network.net.Client;
 import socs.network.net.Server;
 import socs.network.util.Configuration;
+import socs.network.util.Util;
+import socs.network.util.path.Dijkstra;
+import socs.network.util.path.Edge;
+import socs.network.util.path.Graph;
+import socs.network.util.path.Vertex;
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.Vector;
+import java.util.*;
 
 
 public class Router {
@@ -53,7 +56,42 @@ public class Router {
    * @param destinationIP the ip address of the destination simulated router
    */
   private void processDetect(String destinationIP) {
+    ArrayList<Vertex> nodes = new ArrayList<>();
+    ArrayList<Edge> edges = new ArrayList<>();
 
+    _lsd._store.forEach((routerIp, lsa) -> nodes.add(new Vertex(routerIp, routerIp)));
+
+    _lsd._store.forEach((routerIp, lsa) -> {
+      Vertex source = Util.findVertex(nodes, routerIp).get();
+      lsa.links.forEach(ld -> {
+        if (!ld.linkID.equals(routerIp)) {
+          Vertex destination = Util.findVertex(nodes, ld.linkID).get();
+          edges.add(new Edge(routerIp + " -> " + ld.linkID, source, destination, ld.tosMetrics));
+        }
+      });
+    });
+
+    Graph graph = new Graph(nodes, edges);
+    Dijkstra dijkstra = new Dijkstra(graph);
+    Vertex source = Util.findVertex(nodes, _rd.getSimulatedIPAddress()).get();
+    dijkstra.execute(source);
+    Optional<Vertex> destination = Util.findVertex(nodes, destinationIP);
+
+    if (destination.isPresent()) {
+      LinkedList<Vertex> path = dijkstra.getPath(destination.get());
+
+      for (int i = 0; i < path.size(); ++i) {
+        Vertex v = path.get(i);
+        System.out.print(v);
+        if (i < path.size() - 1) {
+          System.out.print(" ->(" + Util.getLinkWeight(v.getName(), path.get(i+1).getName(), this) + ") ");
+        }
+      }
+
+      System.out.println();
+    } else {
+      System.out.println("[ERROR] The destination " + destinationIP + " is not part of the network.");
+    }
   }
 
   /**
@@ -321,5 +359,4 @@ public class Router {
   public void setInitiatorLatestVersion(String initiator, int version) {
     _initiators.put(initiator, version);
   }
-
 }
