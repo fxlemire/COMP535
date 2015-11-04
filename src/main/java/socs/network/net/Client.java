@@ -73,10 +73,8 @@ public class Client implements Runnable {
             message = Util.receiveMessage(_inputStream);
 
             if (message.sospfType == SOSPFPacket.LSU) {
-                _router.synchronize(message.lsaArray);
+                Util.synchronizeAndPropagate(message, _router);
             }
-
-            _router.propagateSynchronization(message.lsaInitiator, message.srcIP);
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -92,5 +90,9 @@ public class Client implements Runnable {
         SOSPFPacket message = Util.makeMessage(_rd, _remoteRouterDescription, SOSPFPacket.LSU, _router);
         message.lsaInitiator = initiator;
         Util.sendMessage(message, _outputStream);
+    }
+
+    public boolean isFor(String remoteIp) {
+        return _remoteRouterDescription.getSimulatedIPAddress().equals(remoteIp);
     }
 }

@@ -117,11 +117,7 @@ public class Server implements Runnable {
                             break;
                         }
                         case SOSPFPacket.LSU: {
-                            //get lsa
-                            _router.synchronize(receivedMessage.lsaArray);
-
-                            //propagate to neighbors
-                            _router.propagateSynchronization(receivedMessage.lsaInitiator, receivedMessage.srcIP);
+                            Util.synchronizeAndPropagate(receivedMessage, _router);
                             break;
                         }
                         case SOSPFPacket.OVER_BURDENED: {
@@ -189,8 +185,8 @@ public class Server implements Runnable {
                     switch (neighbourStatus) {
                         case INIT:
                             neighbourDescription.setStatus(RouterStatus.TWO_WAY);
-                            _router.addLinkDescriptionToDatabase(neighbourDescription, weight);
                             _router.synchronize(lsaArray);
+                            _router.addLinkDescriptionToDatabase(neighbourDescription, weight);
                             break;
                         case TWO_WAY:
                             System.out.println("Router already has a TWO_WAY status.");

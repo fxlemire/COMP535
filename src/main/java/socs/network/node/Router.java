@@ -8,6 +8,7 @@ import socs.network.util.Configuration;
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Vector;
 
@@ -21,6 +22,7 @@ public class Router {
   //assuming that all routers are with 4 _ports
   Link[] _ports = new Link[4];
   Client[] _clients = new Client[4];
+  HashMap<String, Integer> _initiators = new HashMap<String, Integer>();
 
   public Router(Configuration config) {
     _rd = new RouterDescription(Configuration.PROCESS_IP, config.getShort("socs.network.router.port"), config.getString("socs.network.router.ip"));
@@ -293,14 +295,14 @@ public class Router {
 
   public void propagateSynchronization(String initiator, String ipToExclude) {
     for (int i = 0; i < _ports.length; ++i) {
-      if ((_clients[i] != null || initiateConnection(i)) && !_clients[i].getRemoteRouterDescription().getSimulatedIPAddress().equals(ipToExclude)) {
+      if ((_clients[i] != null || initiateConnection(i)) && !_clients[i].isFor(initiator) && !_clients[i].isFor(ipToExclude)) {
         _clients[i].propagateSynchronization(initiator);
       }
     }
   }
 
   private boolean initiateConnection(int i) {
-    if (_ports[i] == null) {
+    if (_clients[i] != null || _ports[i] == null) {
       return false; //empty port
     }
 
@@ -310,6 +312,14 @@ public class Router {
     _clients[i] = client;
 
     return true;
+  }
+
+  public int getInitiatorLatestVersion(String initiator) {
+    return _initiators.containsKey(initiator) ? _initiators.get(initiator) : -1;
+  }
+
+  public void setInitiatorLatestVersion(String initiator, int version) {
+    _initiators.put(initiator, version);
   }
 
 }

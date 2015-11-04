@@ -68,4 +68,18 @@ public class Util {
             e.printStackTrace();
         }
     }
+
+    public static boolean synchronizeAndPropagate(SOSPFPacket message, Router router) {
+        String initiator = message.lsaInitiator;
+        int version = message.messageId;
+
+        if (router.getInitiatorLatestVersion(initiator) < version) {
+            router.setInitiatorLatestVersion(initiator, version);
+            router.synchronize(message.lsaArray);
+            router.propagateSynchronization(initiator, message.srcIP);
+            return true;
+        }
+
+        return false;
+    }
 }
