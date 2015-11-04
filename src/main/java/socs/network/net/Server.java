@@ -19,7 +19,6 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.util.Iterator;
 import java.util.Optional;
 import java.util.Vector;
 
@@ -89,55 +88,49 @@ public class Server implements Runnable {
                 outputStream = new ObjectOutputStream(_clientSocket.getOutputStream());
 
                 while (true) {
-                    try {
-                        SOSPFPacket receivedMessage = Util.receiveMessage(inputStream);
+                    SOSPFPacket receivedMessage = Util.receiveMessage(inputStream);
 
-                        switch (receivedMessage.sospfType) {
-                            case SOSPFPacket.HELLO: {
-                                RouterDescription routerAttachedDescription = new RouterDescription(
-                                        receivedMessage.srcProcessIP,
-                                        receivedMessage.srcProcessPort,
-                                        receivedMessage.srcIP);
+                    switch (receivedMessage.sospfType) {
+                        case SOSPFPacket.HELLO: {
+                            RouterDescription routerAttachedDescription = new RouterDescription(
+                                receivedMessage.srcProcessIP,
+                                receivedMessage.srcProcessPort,
+                                receivedMessage.srcIP);
 
-                                short weight = getLinkWeight(receivedMessage);
+                            short weight = getLinkWeight(receivedMessage);
 
-                                routerAttachedDescription = updateLink(routerAttachedDescription, weight, receivedMessage.lsaArray);
+                            routerAttachedDescription = updateLink(routerAttachedDescription, weight, receivedMessage.lsaArray);
 
-                                RouterStatus routerAttachedStatus = routerAttachedDescription.getStatus();
+                            RouterStatus routerAttachedStatus = routerAttachedDescription.getStatus();
 
-                                if (routerAttachedStatus == RouterStatus.INIT || routerAttachedStatus == RouterStatus.OVER_BURDENED) {
-                                    final short messageType = routerAttachedStatus == RouterStatus.INIT ? SOSPFPacket.HELLO : SOSPFPacket.OVER_BURDENED;
-                                    SOSPFPacket outgoingMessage = Util.makeMessage(_router.getRd(), routerAttachedDescription, messageType, _router);
-                                    outputStream.writeObject(outgoingMessage);
-                                }
-
-                                if (routerAttachedStatus == RouterStatus.TWO_WAY) {
-                                    SOSPFPacket outgoingMessage = Util.makeMessage(_router.getRd(), routerAttachedDescription, SOSPFPacket.LSU, _router);
-                                    outputStream.writeObject(outgoingMessage);
-                                    _router.propagateSynchronization(outgoingMessage.lsaInitiator, receivedMessage.srcIP);
-                                }
-                                break;
+                            if (routerAttachedStatus == RouterStatus.INIT || routerAttachedStatus == RouterStatus.OVER_BURDENED) {
+                                final short messageType = routerAttachedStatus == RouterStatus.INIT ? SOSPFPacket.HELLO : SOSPFPacket.OVER_BURDENED;
+                                SOSPFPacket outgoingMessage = Util.makeMessage(_router.getRd(), routerAttachedDescription, messageType, _router);
+                                Util.sendMessage(outgoingMessage, outputStream);
                             }
-                            case SOSPFPacket.LSU: {
-                                //get lsa
-                                _router.synchronize(receivedMessage.lsaArray);
 
-                                //propagate to neighbors
-                                _router.propagateSynchronization(receivedMessage.lsaInitiator, receivedMessage.srcIP);
-                                break;
+                            if (routerAttachedStatus == RouterStatus.TWO_WAY) {
+                                SOSPFPacket outgoingMessage = Util.makeMessage(_router.getRd(), routerAttachedDescription, SOSPFPacket.LSU, _router);
+                                Util.sendMessage(outgoingMessage, outputStream);
+                                _router.propagateSynchronization(outgoingMessage.lsaInitiator, receivedMessage.srcIP);
                             }
-                            case SOSPFPacket.OVER_BURDENED: {
-                                //OVER_BURDENED should not be received by the router
-                                //escalate
-                            }
-                            default: {
-                                System.out.println("Invalid Message Type");
-                            }
+                            break;
                         }
+                        case SOSPFPacket.LSU: {
+                            //get lsa
+                            _router.synchronize(receivedMessage.lsaArray);
 
-                    } catch (Exception e) {
-                        e.printStackTrace();
-                        break;
+                            //propagate to neighbors
+                            _router.propagateSynchronization(receivedMessage.lsaInitiator, receivedMessage.srcIP);
+                            break;
+                        }
+                        case SOSPFPacket.OVER_BURDENED: {
+                            //OVER_BURDENED should not be received by the router
+                            //escalate
+                        }
+                        default: {
+                            System.out.println("Invalid Message Type");
+                        }
                     }
                 }
             } catch (IOException e) {
@@ -148,8 +141,7 @@ public class Server implements Runnable {
                     outputStream.close();
                     _clientSocket.close();
                     System.out.println("...Stopped");
-                }
-                catch (IOException e) {
+                } catch (IOException|NullPointerException e) {
                     e.printStackTrace();
                 }
             }

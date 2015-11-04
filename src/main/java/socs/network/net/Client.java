@@ -83,24 +83,14 @@ public class Client implements Runnable {
     }
 
     private void sendMessage(short messageType) {
-        try {
-            //System.out.println("Sending HELLO message to " + _remoteRouterIP + "...");
-            SOSPFPacket message = Util.makeMessage(_rd, _remoteRouterDescription, messageType, _router);
-            _outputStream.writeObject(message);
-            _outputStream.flush();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+        //System.out.println("Sending HELLO message to " + _remoteRouterIP + "...");
+        SOSPFPacket message = Util.makeMessage(_rd, _remoteRouterDescription, messageType, _router);
+        Util.sendMessage(message, _outputStream);
     }
 
     public void propagateSynchronization(String initiator) {
-        try {
-            SOSPFPacket message = Util.makeMessage(_rd, _remoteRouterDescription, SOSPFPacket.LSU, _router);
-            message.lsaInitiator = initiator;
-            _outputStream.writeObject(message);
-            _outputStream.flush();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+        SOSPFPacket message = Util.makeMessage(_rd, _remoteRouterDescription, SOSPFPacket.LSU, _router);
+        message.lsaInitiator = initiator;
+        Util.sendMessage(message, _outputStream);
     }
 }

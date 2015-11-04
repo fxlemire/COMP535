@@ -7,6 +7,7 @@ import socs.network.node.RouterDescription;
 
 import java.io.IOException;
 import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
 
 public class Util {
     public static SOSPFPacket makeMessage(RouterDescription local, RouterDescription external, short messageType, Router rd) {
@@ -18,10 +19,7 @@ public class Util {
         message.sospfType = messageType;
         message.routerID = local.getSimulatedIPAddress();
         message.neighborID = external.getSimulatedIPAddress();
-        rd.getLsd().getStore().forEach((k, v) -> {
-            LSA lsa = new LSA(v);
-            message.lsaArray.add(lsa);
-        });
+        rd.getLsd().getStore().forEach((k, v) -> message.lsaArray.add(v));
         message.lsaInitiator = messageType == SOSPFPacket.LSU ? message.srcIP : null;
 
         return message;
@@ -59,5 +57,15 @@ public class Util {
         }
 
         return receivedMessage;
+    }
+
+    public static void sendMessage(SOSPFPacket message, ObjectOutputStream outputStream) {
+        try {
+            outputStream.writeObject(message);
+            outputStream.flush();
+            outputStream.reset();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 }
