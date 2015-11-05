@@ -78,16 +78,16 @@ public class ClientServiceThread implements Runnable {
                     }
                 }
             }
-        } catch (IOException e) {
-            e.printStackTrace();
+        } catch (IOException|NullPointerException e) {
+            //e.printStackTrace();
         } finally {
             try {
                 _inputStream.close();
                 _outputStream.close();
                 _clientSocket.close();
-                System.out.println("...Stopped");
+                //System.out.println("...Stopped");
             } catch (IOException|NullPointerException e) {
-                e.printStackTrace();
+                //e.printStackTrace();
             }
         }
     }

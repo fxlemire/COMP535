@@ -39,7 +39,7 @@ public class Server implements Runnable {
         try {
             _serverSocket = new ServerSocket(_router.getRd().getProcessPortNumber());
         } catch (IOException e) {
-            e.printStackTrace();
+            //e.printStackTrace();
         }
 
         while (true) {
@@ -54,7 +54,7 @@ public class Server implements Runnable {
                     cst.getRunner().start();
                 }
             } catch (IOException e) {
-                e.printStackTrace();
+                //e.printStackTrace();
                 break;
             }
         }
@@ -63,7 +63,7 @@ public class Server implements Runnable {
             _serverSocket.close();
             System.out.println("Server stopped.");
         } catch (IOException e) {
-            e.printStackTrace();
+            //e.printStackTrace();
             System.exit(-1);
         }
     }

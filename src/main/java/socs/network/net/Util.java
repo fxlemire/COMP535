@@ -49,11 +49,11 @@ public class Util {
             }
 
             System.out.println("received " + messageType + " from " + receivedMessage.srcIP + ";");
-        } catch (ClassNotFoundException e) {
+        } catch (ClassNotFoundException|ClassCastException|IllegalStateException e) {
             System.out.println("No message received.");
-            e.printStackTrace();
+            //e.printStackTrace();
         } catch (IOException e) {
-            e.printStackTrace();
+            //e.printStackTrace();
         }
 
         return receivedMessage;
@@ -64,8 +64,8 @@ public class Util {
             outputStream.writeObject(message);
             outputStream.reset();
             outputStream.flush();
-        } catch (IOException e) {
-            e.printStackTrace();
+        } catch (IOException|NullPointerException e) {
+            //e.printStackTrace();
         }
     }
 
