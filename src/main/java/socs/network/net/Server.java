@@ -38,8 +38,8 @@ public class Server implements Runnable {
     public void run() {
         try {
             _serverSocket = new ServerSocket(_router.getRd().getProcessPortNumber());
-        } catch (IOException e) {
-            e.printStackTrace();
+        } catch (Exception e) {
+            //e.printStackTrace();
         }
 
         while (true) {
@@ -50,11 +50,12 @@ public class Server implements Runnable {
                     System.out.println("Waiting for client on port " + _serverSocket.getLocalPort() + "...");
                     Socket clientSocket = _serverSocket.accept();
                     ClientServiceThread cst = new ClientServiceThread(_router, clientSocket);
+                    _router.addClientServer(cst);
                     _clientServicers[port] = cst;
                     cst.getRunner().start();
                 }
-            } catch (IOException e) {
-                e.printStackTrace();
+            } catch (Exception e) {
+                //e.printStackTrace();
                 break;
             }
         }
@@ -62,8 +63,8 @@ public class Server implements Runnable {
         try {
             _serverSocket.close();
             System.out.println("Server stopped.");
-        } catch (IOException e) {
-            e.printStackTrace();
+        } catch (Exception e) {
+            //e.printStackTrace();
             System.exit(-1);
         }
     }

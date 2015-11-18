@@ -41,8 +41,8 @@ public class Client implements Runnable {
             System.out.println("Connecting to " + _remoteRouterIP + "...");
             _clientSocket = new Socket(_remoteRouterDescription.getProcessIPAddress(), _remoteRouterDescription.getProcessPortNumber());
             System.out.println("Just connected to " + _remoteRouterIP + "...");
-        } catch (IOException e) {
-            e.printStackTrace();
+        } catch (Exception e) {
+            //e.printStackTrace();
         }
 
         _runner = new Thread(this);
@@ -78,8 +78,17 @@ public class Client implements Runnable {
                     Util.synchronizeAndPropagate(message, _router);
                 }
             }
-        } catch (IOException e) {
-            e.printStackTrace();
+        } catch (Exception e) {
+            //e.printStackTrace();
+        } finally {
+            try {
+                _inputStream.close();
+                _outputStream.close();
+                _clientSocket.close();
+                //System.out.println("...Stopped");
+            } catch (Exception e) {
+                //e.printStackTrace();
+            }
         }
     }
 

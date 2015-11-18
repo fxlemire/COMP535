@@ -10,6 +10,9 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 
 public class Util {
+    private static int SAFETYLOOPCHECKER_COUNT = 0;
+    private static String SAFETYLOOPCHECKER_INITIATOR = "";
+
     public static SOSPFPacket makeMessage(RouterDescription local, RouterDescription external, short messageType, Router rd) {
         SOSPFPacket message = new SOSPFPacket();
         message.srcProcessIP = local.getProcessIPAddress();
@@ -49,11 +52,9 @@ public class Util {
             }
 
             System.out.println("received " + messageType + " from " + receivedMessage.srcIP + ";");
-        } catch (ClassNotFoundException e) {
-            System.out.println("No message received.");
-            e.printStackTrace();
-        } catch (IOException e) {
-            e.printStackTrace();
+        } catch (Exception e) {
+            //System.out.println("No message received.");
+            //e.printStackTrace();
         }
 
         return receivedMessage;
@@ -64,19 +65,38 @@ public class Util {
             outputStream.writeObject(message);
             outputStream.reset();
             outputStream.flush();
-        } catch (IOException e) {
-            e.printStackTrace();
+        } catch (Exception e) {
+            //e.printStackTrace();
         }
     }
 
     public static boolean synchronizeAndPropagate(SOSPFPacket message, Router router) {
         String initiator = message.lsaInitiator;
         int version = message.messageId;
+        boolean canProceed = true;
 
-        if (router.getInitiatorLatestVersion(initiator) < version) {
+        if (SAFETYLOOPCHECKER_INITIATOR.equals(initiator)) {
+            if (SAFETYLOOPCHECKER_COUNT == 5) {
+                for (LSA lsa : message.lsaArray) {
+                    String id = lsa.linkStateID;
+                    LSA localLsa = router.getLsd().getStore().get(id);
+                    if (localLsa.lsaSeqNumber == lsa.lsaSeqNumber) {
+                        canProceed = false;
+                    } else {
+                        SAFETYLOOPCHECKER_COUNT = 0;
+                    }
+                }
+            }
+        } else {
+            SAFETYLOOPCHECKER_INITIATOR = initiator;
+            SAFETYLOOPCHECKER_COUNT = 0;
+        }
+
+        if (canProceed && router.getInitiatorLatestVersion(initiator) < version) {
             router.setInitiatorLatestVersion(initiator, version);
             router.synchronize(message.lsaArray);
             router.propagateSynchronization(initiator, message.srcIP);
+            ++SAFETYLOOPCHECKER_COUNT;
             return true;
         }
 

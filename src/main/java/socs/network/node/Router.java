@@ -26,12 +26,17 @@ public class Router {
   //assuming that all routers are with 4 _ports
   Link[] _ports = new Link[4];
   Client[] _clients = new Client[4];
+  ArrayList<ClientServiceThread> _clientServers = new ArrayList<>();
   HashMap<String, Integer> _initiators = new HashMap<String, Integer>();
   Server _server;
 
   public Router(Configuration config) {
     _rd = new RouterDescription(Configuration.PROCESS_IP, config.getShort("socs.network.router.port"), config.getString("socs.network.router.ip"));
     _lsd = new LinkStateDatabase(_rd);
+  }
+
+  public void addClientServer(ClientServiceThread clientServer) {
+    _clientServers.add(clientServer);
   }
 
   public Client[] getClients() {
@@ -128,7 +133,27 @@ public class Router {
    */
   private void processStart() {
     for (int i = 0; i < _ports.length; ++i) {
-      initiateConnection(i);
+      if (_ports[i] != null) {
+        String ip = _ports[i].getRouter1().getSimulatedIPAddress();
+
+        if (ip.equals(_rd.getSimulatedIPAddress())) {
+          ip = _ports[i].getRouter2().getSimulatedIPAddress();
+        }
+
+        boolean isFound = false;
+        for (int j = 0; j < _clientServers.size(); ++j) {
+          ClientServiceThread cst = _clientServers.get(j);
+
+          if (cst.getRemoteRouterDescription().getSimulatedIPAddress().equals(ip)) {
+            isFound = true;
+            break;
+          }
+        }
+
+        if (!isFound) {
+          initiateConnection(i);
+        }
+      }
     }
   }
 
@@ -230,7 +255,7 @@ public class Router {
       isReader.close();
       br.close();
     } catch (Exception e) {
-      e.printStackTrace();
+      //e.printStackTrace();
     }
   }
 
