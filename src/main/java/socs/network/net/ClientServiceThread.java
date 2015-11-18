@@ -29,6 +29,10 @@ public class ClientServiceThread implements Runnable {
         _runner = new Thread(this);
     }
 
+    public RouterDescription getRemoteRouterDescription() {
+        return _remoteRouterDescription;
+    }
+
     public Thread getRunner() { return _runner; }
 
     public void run() {
@@ -78,7 +82,7 @@ public class ClientServiceThread implements Runnable {
                     }
                 }
             }
-        } catch (IOException|NullPointerException e) {
+        } catch (Exception e) {
             //e.printStackTrace();
         } finally {
             try {
@@ -86,7 +90,7 @@ public class ClientServiceThread implements Runnable {
                 _outputStream.close();
                 _clientSocket.close();
                 //System.out.println("...Stopped");
-            } catch (IOException|NullPointerException e) {
+            } catch (Exception e) {
                 //e.printStackTrace();
             }
         }
