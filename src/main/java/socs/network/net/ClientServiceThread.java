@@ -65,11 +65,20 @@ public class ClientServiceThread implements Runnable {
                         if (routerAttachedStatus == RouterStatus.TWO_WAY) {
                             SOSPFPacket outgoingMessage = Util.makeMessage(_router.getRd(), _remoteRouterDescription, SOSPFPacket.LSU, _router);
                             Util.sendMessage(outgoingMessage, _outputStream);
-                            _router.propagateSynchronization(outgoingMessage.lsaInitiator, receivedMessage.srcIP);
+                            _router.propagateSynchronization(outgoingMessage.lsaInitiator, receivedMessage.srcIP, SOSPFPacket.LSU);
                         }
                         break;
                     }
                     case SOSPFPacket.LSU: {
+                        Util.synchronizeAndPropagate(receivedMessage, _router);
+                        break;
+                    }
+                    case SOSPFPacket.DISCONNECT: {
+                        if (receivedMessage.disconnectVictim.equals(_router.getRd().getSimulatedIPAddress())) {
+                            _router.removeLink(receivedMessage.disconnectInitiator);
+                        } else {
+                            _router.getLsd().remove(receivedMessage.disconnectInitiator, receivedMessage.disconnectVictim);
+                        }
                         Util.synchronizeAndPropagate(receivedMessage, _router);
                         break;
                     }
@@ -189,9 +198,16 @@ public class ClientServiceThread implements Runnable {
         return weight;
     }
 
-    public void propagateSynchronization(String initiator) {
-        SOSPFPacket message = Util.makeMessage(_router.getRd(), _remoteRouterDescription, SOSPFPacket.LSU, _router);
-        message.lsaInitiator = initiator;
+    public void propagateSynchronization(String initiator, short synchronizationType, String disconnectInitiator, String disconnectVictim) {
+        SOSPFPacket message;
+
+        if (synchronizationType == SOSPFPacket.DISCONNECT) {
+            message = Util.makeMessage(_router.getRd(), _remoteRouterDescription, synchronizationType, _router, disconnectInitiator, disconnectVictim);
+        } else {
+            message = Util.makeMessage(_router.getRd(), _remoteRouterDescription, synchronizationType, _router);
+            message.lsaInitiator = initiator;
+        }
+
         Util.sendMessage(message, _outputStream);
     }
 

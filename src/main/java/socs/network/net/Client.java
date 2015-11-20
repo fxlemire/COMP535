@@ -98,9 +98,16 @@ public class Client implements Runnable {
         Util.sendMessage(message, _outputStream);
     }
 
-    public void propagateSynchronization(String initiator) {
-        SOSPFPacket message = Util.makeMessage(_rd, _remoteRouterDescription, SOSPFPacket.LSU, _router);
-        message.lsaInitiator = initiator;
+    public void propagateSynchronization(String initiator, short synchronizationType, String disconnectInitiator, String disconnectVictim) {
+        SOSPFPacket message;
+
+        if (synchronizationType == SOSPFPacket.DISCONNECT) {
+            message = Util.makeMessage(_rd, _remoteRouterDescription, synchronizationType, _router, disconnectInitiator, disconnectVictim);
+        } else {
+            message = Util.makeMessage(_rd, _remoteRouterDescription, synchronizationType, _router);
+            message.lsaInitiator = initiator;
+        }
+
         Util.sendMessage(message, _outputStream);
     }
 

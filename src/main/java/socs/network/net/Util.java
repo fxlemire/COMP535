@@ -28,6 +28,14 @@ public class Util {
         return message;
     }
 
+    public static SOSPFPacket makeMessage(RouterDescription local, RouterDescription external, short messageType, Router rd, String ip1, String ip2) {
+        SOSPFPacket message = makeMessage(local, external, messageType, rd);
+        message.lsaInitiator = ip1;
+        message.disconnectInitiator = ip1;
+        message.disconnectVictim = ip2;
+        return message;
+    }
+
     public static SOSPFPacket receiveMessage(ObjectInputStream inputStream) {
         SOSPFPacket receivedMessage = null;
 
@@ -45,6 +53,9 @@ public class Util {
                     break;
                 case SOSPFPacket.OVER_BURDENED:
                     messageType = "OVER_BURDENED";
+                    break;
+                case SOSPFPacket.DISCONNECT:
+                    messageType = "DISCONNECT";
                     break;
                 default:
                     messageType = "UNKNOWN_STATE";
@@ -94,8 +105,10 @@ public class Util {
 
         if (canProceed && router.getInitiatorLatestVersion(initiator) < version) {
             router.setInitiatorLatestVersion(initiator, version);
-            router.synchronize(message.lsaArray);
-            router.propagateSynchronization(initiator, message.srcIP);
+            if (message.sospfType == SOSPFPacket.LSU) {
+                router.synchronize(message.lsaArray);
+            }
+            router.propagateSynchronization(initiator, message.srcIP, message.sospfType);
             ++SAFETYLOOPCHECKER_COUNT;
             return true;
         }

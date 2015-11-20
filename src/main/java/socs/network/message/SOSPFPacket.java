@@ -8,6 +8,7 @@ public class SOSPFPacket implements Serializable {
   public final static short HELLO = 0;
   public final static short LSU = 1;
   public final static short OVER_BURDENED = 2;
+  public final static short DISCONNECT = 3;
   public static int id = 0;
 
   //for inter-process communication
@@ -19,7 +20,7 @@ public class SOSPFPacket implements Serializable {
   public String dstIP;
 
   //common header
-  public short sospfType; //0 - HELLO, 1 - LinkState Update, 2 - Over Burdened
+  public short sospfType; //0 - HELLO, 1 - LinkState Update, 2 - Over Burdened, 3 - Disconnect
   public String routerID;
   public int messageId = id++;
 
@@ -32,4 +33,7 @@ public class SOSPFPacket implements Serializable {
   public Vector<LSA> lsaArray = new Vector<>();
   public String lsaInitiator = null;
 
+  //used by DISCONNECT
+  public String disconnectInitiator;
+  public String disconnectVictim;
 }
