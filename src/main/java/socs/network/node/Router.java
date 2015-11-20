@@ -118,29 +118,7 @@ public class Router {
       return;
     }
 
-    Link link = _ports[portNumber];
-    if (link == null) {
-      System.out.println("[ERROR] No router is connected to this port.");
-      return;
-    }
-
-    RouterDescription neighborDescription = link.router1.simulatedIPAddress.equals(_rd.simulatedIPAddress) ? link.router2 : link.router1;
-    String neighborIp = neighborDescription.getSimulatedIPAddress();
-
-    for (int i = 0; i < _clients.length; ++i) {
-      if (_clients[i] != null) {
-        _clients[i].propagateSynchronization(_rd.getSimulatedIPAddress(), SOSPFPacket.DISCONNECT, _rd.getSimulatedIPAddress(), neighborIp);
-      }
-    }
-
-    ClientServiceThread[] clientServicers = _server.getClientServicers();
-    for (int i = 0; i < clientServicers.length; ++i) {
-      if (clientServicers[i] != null) {
-        clientServicers[i].propagateSynchronization(_rd.getSimulatedIPAddress(), SOSPFPacket.DISCONNECT, _rd.getSimulatedIPAddress(), neighborIp);
-      }
-    }
-
-    removeLink(neighborIp);
+    disconnect(portNumber, SOSPFPacket.DISCONNECT);
   }
 
   /**
@@ -245,6 +223,11 @@ public class Router {
    * disconnect with all neighbors and quit the program
    */
   private void processQuit() {
+    for (short i = 0; i < _ports.length; ++i) {
+      if (_ports[i] != null) {
+        disconnect(i, SOSPFPacket.ANNIHILATE);
+      }
+    }
     System.exit(1);
   }
 
@@ -335,7 +318,7 @@ public class Router {
     return false;
   }
 
-  public void removeLink(String ip) {
+  public void removeLink(String ip, short type) {
     for (int i = 0; i < _ports.length; ++i) {
       if (_ports[i] == null) {
         continue;
@@ -356,7 +339,11 @@ public class Router {
 
         _server.remove(ip);
 
-        _lsd.remove(_rd.getSimulatedIPAddress(), ip);
+        if (type == SOSPFPacket.ANNIHILATE) {
+          _lsd.annihilate(ip);
+        } else {
+          _lsd.remove(_rd.getSimulatedIPAddress(), ip);
+        }
 
         break;
       }
@@ -417,17 +404,17 @@ public class Router {
     return isOutdated;
   }
 
-  public void propagateSynchronization(String initiator, String ipToExclude, short sospfType) {
+  public void propagateSynchronization(String initiator, String ipToExclude, short sospfType, String disconnectInitiator, String disconnectVictim) {
     for (int i = 0; i < _clients.length; ++i) {
       if (_clients[i] != null && !_clients[i].isFor(initiator) && !_clients[i].isFor(ipToExclude)) {
-        _clients[i].propagateSynchronization(initiator, sospfType, null, null);
+        _clients[i].propagateSynchronization(initiator, sospfType, disconnectInitiator, disconnectVictim);
       }
     }
 
     ClientServiceThread[] clientServicers = _server.getClientServicers();
     for (int i = 0; i < clientServicers.length; ++i) {
       if (clientServicers[i] != null && !clientServicers[i].isFor(initiator) && !clientServicers[i].isFor(ipToExclude)) {
-        clientServicers[i].propagateSynchronization(initiator, sospfType, null, null);
+        clientServicers[i].propagateSynchronization(initiator, sospfType, disconnectInitiator, disconnectVictim);
       }
     }
   }
@@ -490,5 +477,31 @@ public class Router {
     RouterDescription routerAttachedDescription = new RouterDescription(processIP, processPort, simulatedIP);
     Link link = new Link(_rd, routerAttachedDescription, weight);
     return portNumber == -1 ? addLink(link) : addLink(link, portNumber);
+  }
+
+  private void disconnect(short portNumber, short type) {
+    Link link = _ports[portNumber];
+    if (link == null) {
+      System.out.println("[ERROR] No router is connected to this port.");
+      return;
+    }
+
+    RouterDescription neighborDescription = link.router1.simulatedIPAddress.equals(_rd.simulatedIPAddress) ? link.router2 : link.router1;
+    String neighborIp = neighborDescription.getSimulatedIPAddress();
+
+    for (int i = 0; i < _clients.length; ++i) {
+      if (_clients[i] != null) {
+        _clients[i].propagateSynchronization(_rd.getSimulatedIPAddress(), type, _rd.getSimulatedIPAddress(), neighborIp);
+      }
+    }
+
+    ClientServiceThread[] clientServicers = _server.getClientServicers();
+    for (int i = 0; i < clientServicers.length; ++i) {
+      if (clientServicers[i] != null) {
+        clientServicers[i].propagateSynchronization(_rd.getSimulatedIPAddress(), type, _rd.getSimulatedIPAddress(), neighborIp);
+      }
+    }
+
+    removeLink(neighborIp, type);
   }
 }

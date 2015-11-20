@@ -57,6 +57,9 @@ public class Util {
                 case SOSPFPacket.DISCONNECT:
                     messageType = "DISCONNECT";
                     break;
+                case SOSPFPacket.ANNIHILATE:
+                    messageType = "ANNIHILATE";
+                    break;
                 default:
                     messageType = "UNKNOWN_STATE";
                     break;
@@ -108,7 +111,7 @@ public class Util {
             if (message.sospfType == SOSPFPacket.LSU) {
                 router.synchronize(message.lsaArray);
             }
-            router.propagateSynchronization(initiator, message.srcIP, message.sospfType);
+            router.propagateSynchronization(initiator, message.srcIP, message.sospfType, message.disconnectInitiator, message.disconnectVictim);
             ++SAFETYLOOPCHECKER_COUNT;
             return true;
         }

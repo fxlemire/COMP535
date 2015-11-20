@@ -9,6 +9,7 @@ public class SOSPFPacket implements Serializable {
   public final static short LSU = 1;
   public final static short OVER_BURDENED = 2;
   public final static short DISCONNECT = 3;
+  public final static short ANNIHILATE = 4;
   public static int id = 0;
 
   //for inter-process communication

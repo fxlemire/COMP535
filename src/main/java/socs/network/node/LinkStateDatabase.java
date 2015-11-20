@@ -77,4 +77,20 @@ public class LinkStateDatabase {
       }
     }
   }
+
+  public void annihilate(String ip) {
+    synchronized (_storeLock) {
+      _store.remove(ip);
+
+      _store.forEach((k, lsa) -> {
+        LinkedList<LinkDescription> links = lsa.links;
+        for (int i = 0; i < links.size(); ++i) {
+          LinkDescription link = links.get(i);
+          if (link.linkID.equals(ip)) {
+            links.remove(i);
+          }
+        }
+      });
+    }
+  }
 }

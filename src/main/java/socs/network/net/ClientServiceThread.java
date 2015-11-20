@@ -65,7 +65,7 @@ public class ClientServiceThread implements Runnable {
                         if (routerAttachedStatus == RouterStatus.TWO_WAY) {
                             SOSPFPacket outgoingMessage = Util.makeMessage(_router.getRd(), _remoteRouterDescription, SOSPFPacket.LSU, _router);
                             Util.sendMessage(outgoingMessage, _outputStream);
-                            _router.propagateSynchronization(outgoingMessage.lsaInitiator, receivedMessage.srcIP, SOSPFPacket.LSU);
+                            _router.propagateSynchronization(outgoingMessage.lsaInitiator, receivedMessage.srcIP, SOSPFPacket.LSU, null, null);
                         }
                         break;
                     }
@@ -75,10 +75,16 @@ public class ClientServiceThread implements Runnable {
                     }
                     case SOSPFPacket.DISCONNECT: {
                         if (receivedMessage.disconnectVictim.equals(_router.getRd().getSimulatedIPAddress())) {
-                            _router.removeLink(receivedMessage.disconnectInitiator);
+                            _router.removeLink(receivedMessage.disconnectInitiator, SOSPFPacket.DISCONNECT);
                         } else {
                             _router.getLsd().remove(receivedMessage.disconnectInitiator, receivedMessage.disconnectVictim);
                         }
+                        Util.synchronizeAndPropagate(receivedMessage, _router);
+                        break;
+                    }
+                    case SOSPFPacket.ANNIHILATE: {
+                        _router.removeLink(receivedMessage.disconnectInitiator, SOSPFPacket.ANNIHILATE);
+                        _router.getLsd().annihilate(receivedMessage.disconnectInitiator);
                         Util.synchronizeAndPropagate(receivedMessage, _router);
                         break;
                     }
@@ -201,7 +207,7 @@ public class ClientServiceThread implements Runnable {
     public void propagateSynchronization(String initiator, short synchronizationType, String disconnectInitiator, String disconnectVictim) {
         SOSPFPacket message;
 
-        if (synchronizationType == SOSPFPacket.DISCONNECT) {
+        if (synchronizationType == SOSPFPacket.DISCONNECT || synchronizationType == SOSPFPacket.ANNIHILATE) {
             message = Util.makeMessage(_router.getRd(), _remoteRouterDescription, synchronizationType, _router, disconnectInitiator, disconnectVictim);
         } else {
             message = Util.makeMessage(_router.getRd(), _remoteRouterDescription, synchronizationType, _router);
