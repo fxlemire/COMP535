@@ -502,6 +502,12 @@ public class Router {
       }
     }
 
+    for (ClientServiceThread cst : _clientServers) {
+      if (cst != null) {
+        cst.propagateSynchronization(_rd.getSimulatedIPAddress(), type, _rd.getSimulatedIPAddress(), neighborIp);
+      }
+    }
+
     removeLink(neighborIp, type);
   }
 }
