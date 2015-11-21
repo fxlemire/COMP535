@@ -4,11 +4,13 @@ import socs.network.message.LSA;
 import socs.network.message.LinkDescription;
 
 import java.util.HashMap;
+import java.util.LinkedList;
 
 public class LinkStateDatabase {
 
   //linkID => LSAInstance
   HashMap<String, LSA> _store = new HashMap<String, LSA>();
+  Object _storeLock = new Object();
 
   private RouterDescription rd = null;
 
@@ -56,4 +58,39 @@ public class LinkStateDatabase {
     return sb.toString();
   }
 
+  public void remove(String ip1, String ip2) {
+    synchronized (_storeLock) {
+      LinkedList<LinkDescription> links = _store.get(ip1).links;
+      remove(links, ip2);
+      links = _store.get(ip2).links;
+      remove(links, ip1);
+    }
+  }
+
+  private void remove(LinkedList<LinkDescription> links, String ip) {
+    if (links != null) {
+      for (int i = 0; i < links.size(); ++i) {
+        if (links.get(i).linkID.equals(ip)) {
+          links.remove(i);
+          break;
+        }
+      }
+    }
+  }
+
+  public void annihilate(String ip) {
+    synchronized (_storeLock) {
+      _store.remove(ip);
+
+      _store.forEach((k, lsa) -> {
+        LinkedList<LinkDescription> links = lsa.links;
+        for (int i = 0; i < links.size(); ++i) {
+          LinkDescription link = links.get(i);
+          if (link.linkID.equals(ip)) {
+            links.remove(i);
+          }
+        }
+      });
+    }
+  }
 }

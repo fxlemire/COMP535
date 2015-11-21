@@ -61,7 +61,7 @@ public class Server implements Runnable {
         }
 
         try {
-            _serverSocket.close();
+            //_serverSocket.close();
             System.out.println("Server stopped.");
         } catch (Exception e) {
             //e.printStackTrace();
@@ -78,5 +78,13 @@ public class Server implements Runnable {
             }
         }
         return port;
+    }
+
+    public void remove(String ip) {
+        for (int i = 0; i < _clientServicers.length; ++i) {
+            if (_clientServicers[i] != null && _clientServicers[i]._remoteRouterDescription.getSimulatedIPAddress().equals(ip)) {
+                _clientServicers[i] = null;
+            }
+        }
     }
 }

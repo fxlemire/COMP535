@@ -63,7 +63,7 @@ public class Client implements Runnable {
 
             if (message.sospfType == SOSPFPacket.OVER_BURDENED) {
                 System.out.println("Removing link with router " + message.srcIP + "...");
-                _router.removeLink(_remoteRouterIP);
+                _router.removeLink(_remoteRouterIP, SOSPFPacket.OVER_BURDENED);
                 return;
             }
 
@@ -74,17 +74,37 @@ public class Client implements Runnable {
             while (true) {
                 message = Util.receiveMessage(_inputStream);
 
-                if (message.sospfType == SOSPFPacket.LSU) {
-                    Util.synchronizeAndPropagate(message, _router);
+                switch (message.sospfType) {
+                    case SOSPFPacket.LSU: {
+                        Util.synchronizeAndPropagate(message, _router);
+                        break;
+                    }
+                    case SOSPFPacket.DISCONNECT: {
+                        if (message.disconnectVictim.equals(_router.getRd().getSimulatedIPAddress())) {
+                            _router.removeLink(message.disconnectInitiator, SOSPFPacket.DISCONNECT);
+                        } else {
+                            _router.getLsd().remove(message.disconnectInitiator, message.disconnectVictim);
+                        }
+                        Util.synchronizeAndPropagate(message, _router);
+                        break;
+                    }
+                    case SOSPFPacket.ANNIHILATE: {
+                        _router.removeLink(message.disconnectInitiator, SOSPFPacket.ANNIHILATE);
+                        _router.getLsd().annihilate(message.disconnectInitiator);
+                        Util.synchronizeAndPropagate(message, _router);
+                        break;
+                    }
+                    default:
+                        //do nothing
                 }
             }
         } catch (Exception e) {
             //e.printStackTrace();
         } finally {
             try {
-                _inputStream.close();
-                _outputStream.close();
-                _clientSocket.close();
+                //_inputStream.close();
+                //_outputStream.close();
+                //_clientSocket.close();
                 //System.out.println("...Stopped");
             } catch (Exception e) {
                 //e.printStackTrace();
@@ -98,9 +118,16 @@ public class Client implements Runnable {
         Util.sendMessage(message, _outputStream);
     }
 
-    public void propagateSynchronization(String initiator) {
-        SOSPFPacket message = Util.makeMessage(_rd, _remoteRouterDescription, SOSPFPacket.LSU, _router);
-        message.lsaInitiator = initiator;
+    public void propagateSynchronization(String initiator, short synchronizationType, String disconnectInitiator, String disconnectVictim) {
+        SOSPFPacket message;
+
+        if (synchronizationType == SOSPFPacket.DISCONNECT || synchronizationType == SOSPFPacket.ANNIHILATE) {
+            message = Util.makeMessage(_rd, _remoteRouterDescription, synchronizationType, _router, disconnectInitiator, disconnectVictim);
+        } else {
+            message = Util.makeMessage(_rd, _remoteRouterDescription, synchronizationType, _router);
+            message.lsaInitiator = initiator;
+        }
+
         Util.sendMessage(message, _outputStream);
     }
 

@@ -2,6 +2,7 @@ package socs.network.node;
 
 import socs.network.message.LSA;
 import socs.network.message.LinkDescription;
+import socs.network.message.SOSPFPacket;
 import socs.network.net.Client;
 import socs.network.net.ClientServiceThread;
 import socs.network.net.Server;
@@ -20,8 +21,8 @@ import java.util.*;
 public class Router {
 
   protected LinkStateDatabase _lsd;
-
   RouterDescription _rd;
+  final Object _lsdLock = new Object();
 
   //assuming that all routers are with 4 _ports
   Link[] _ports = new Link[4];
@@ -29,6 +30,7 @@ public class Router {
   ArrayList<ClientServiceThread> _clientServers = new ArrayList<>();
   HashMap<String, Integer> _initiators = new HashMap<String, Integer>();
   Server _server;
+  boolean _isStarted = false;
 
   public Router(Configuration config) {
     _rd = new RouterDescription(Configuration.PROCESS_IP, config.getShort("socs.network.router.port"), config.getString("socs.network.router.ip"));
@@ -108,7 +110,15 @@ public class Router {
    * @param portNumber the port number which the link attaches at
    */
   private void processDisconnect(short portNumber) {
+    --portNumber;
+    boolean isDisconnected = false;
 
+    if (portNumber < 0) {
+      System.out.println("[ERROR] port number cannot be smaller than 1");
+      return;
+    }
+
+    disconnect(portNumber, SOSPFPacket.DISCONNECT);
   }
 
   /**
@@ -119,13 +129,7 @@ public class Router {
    * NOTE: this command should not trigger link database synchronization
    */
   private void processAttach(String processIP, short processPort, String simulatedIP, short weight) {
-    if (!isValidAttach(processPort, simulatedIP)) {
-      return;
-    }
-
-    RouterDescription routerAttachedDescription = new RouterDescription(processIP, processPort, simulatedIP);
-    Link link = new Link(_rd, routerAttachedDescription, weight);
-    addLink(link);
+    attach(processIP, processPort, simulatedIP, weight, -1);
   }
 
   /**
@@ -133,28 +137,13 @@ public class Router {
    */
   private void processStart() {
     for (int i = 0; i < _ports.length; ++i) {
-      if (_ports[i] != null) {
-        String ip = _ports[i].getRouter1().getSimulatedIPAddress();
+      boolean isAlreadyConnected = isConnected(i);
 
-        if (ip.equals(_rd.getSimulatedIPAddress())) {
-          ip = _ports[i].getRouter2().getSimulatedIPAddress();
-        }
-
-        boolean isFound = false;
-        for (int j = 0; j < _clientServers.size(); ++j) {
-          ClientServiceThread cst = _clientServers.get(j);
-
-          if (cst.getRemoteRouterDescription().getSimulatedIPAddress().equals(ip)) {
-            isFound = true;
-            break;
-          }
-        }
-
-        if (!isFound) {
+        if (!isAlreadyConnected) {
           initiateConnection(i);
         }
       }
-    }
+    _isStarted = true;
   }
 
   /**
@@ -164,9 +153,34 @@ public class Router {
    * <p/>
    * This command does trigger the link database synchronization
    */
-  private void processConnect(String processIP, short processPort,
-                              String simulatedIP, short weight) {
+  private void processConnect(String processIP, short processPort, String simulatedIP, short weight) {
+    if (!_isStarted) {
+      System.out.println("[ERROR] Please first start the router.");
+      return;
+    }
 
+    for (int i = 0; i < _ports.length; ++i) {
+      if (_ports[i] != null) {
+        String ip = getRemoteRouterSimulatedIp(i);
+        if (ip.equals(simulatedIP)) {
+          if (isConnected(i)) {
+            //possible problem: the router has only been attached to the ports but `start` was not run. This use case is not legit though.
+            System.out.println("[ERROR] This router is already connected.");
+            return;
+          } else {
+            initiateConnection(i);
+            break;
+          }
+        }
+      } else {
+        if (attach(processIP, processPort, simulatedIP, weight, i)) {
+          initiateConnection(i);
+        } else {
+          System.out.println("[ERROR] Could not attach router.");
+        }
+        break;
+      }
+    }
   }
 
   /**
@@ -209,7 +223,12 @@ public class Router {
    * disconnect with all neighbors and quit the program
    */
   private void processQuit() {
-
+    for (short i = 0; i < _ports.length; ++i) {
+      if (_ports[i] != null) {
+        disconnect(i, SOSPFPacket.ANNIHILATE);
+      }
+    }
+    System.exit(1);
   }
 
   public void terminal() {
@@ -229,13 +248,14 @@ public class Router {
           processDisconnect(Short.parseShort(cmdLine[1]));
         } else if (command.startsWith("quit")) {
           processQuit();
+          break;
         } else if (command.startsWith("attach ")) {
           String[] cmdLine = command.split(" ");
           processAttach(cmdLine[1], Short.parseShort(cmdLine[2]),
                   cmdLine[3], Short.parseShort(cmdLine[4]));
         } else if (command.equals("start")) {
           processStart();
-        } else if (command.equals("connect ")) {
+        } else if (command.startsWith("connect ")) {
           String[] cmdLine = command.split(" ");
           processConnect(cmdLine[1], Short.parseShort(cmdLine[2]),
                   cmdLine[3], Short.parseShort(cmdLine[4]));
@@ -247,7 +267,7 @@ public class Router {
           System.out.print(_lsd.toString());
         } else {
           //invalid command
-          break;
+          System.out.println("[ERROR] Invalid command.");
         }
         System.out.print(">> ");
         command = br.readLine();
@@ -277,21 +297,28 @@ public class Router {
 
   public boolean addLink(Link link) {
     for (int i = 0; i < _ports.length; ++i) {
-      if (_ports[i] == null) {
-        _ports[i] = link;
-        break;
-      }
-
-      if (i == 3) {
-        System.out.println("[ERROR] Current router is already attached to 4 routers. Disconnect a router and retry.");
-        return false;
+      if (addLink(link, i)) {
+        return true;
       }
     }
 
-    return true;
+    return false;
   }
 
-  public void removeLink(String ip) {
+  public boolean addLink(Link link, int i) {
+    if (_ports[i] == null) {
+      _ports[i] = link;
+      return true;
+    }
+
+    if (i == 3) {
+      System.out.println("[ERROR] Current router is already attached to 4 routers. Disconnect a router and retry.");
+    }
+
+    return false;
+  }
+
+  public void removeLink(String ip, short type) {
     for (int i = 0; i < _ports.length; ++i) {
       if (_ports[i] == null) {
         continue;
@@ -302,6 +329,23 @@ public class Router {
       if (isLinkToDelete) {
         _ports[i] = null;
         _clients[i] = null;
+        for (int j = 0; j < _clientServers.size(); ++j) {
+          ClientServiceThread cst = _clientServers.get(j);
+          if (cst.getRemoteRouterDescription().getSimulatedIPAddress().equals(ip)) {
+            _clientServers.remove(j);
+            break;
+          }
+        }
+
+        _server.remove(ip);
+
+        if (type == SOSPFPacket.ANNIHILATE) {
+          _lsd.annihilate(ip);
+        } else {
+          _lsd.remove(_rd.getSimulatedIPAddress(), ip);
+        }
+
+        break;
       }
     }
   }
@@ -340,12 +384,14 @@ public class Router {
   }
 
   public void synchronize(Vector<LSA> lsaVector) {
-    Iterator<LSA> lsaIterator = lsaVector.iterator();
+    synchronized(_lsdLock) {
+      Iterator<LSA> lsaIterator = lsaVector.iterator();
 
-    while (lsaIterator.hasNext()) {
-      LSA lsa = lsaIterator.next();
-      if (isLsaOutdated(lsa)) {
-        _lsd._store.put(lsa.linkStateID, lsa);
+      while (lsaIterator.hasNext()) {
+        LSA lsa = lsaIterator.next();
+        if (isLsaOutdated(lsa)) {
+          _lsd._store.put(lsa.linkStateID, lsa);
+        }
       }
     }
   }
@@ -358,17 +404,17 @@ public class Router {
     return isOutdated;
   }
 
-  public void propagateSynchronization(String initiator, String ipToExclude) {
+  public void propagateSynchronization(String initiator, String ipToExclude, short sospfType, String disconnectInitiator, String disconnectVictim) {
     for (int i = 0; i < _clients.length; ++i) {
       if (_clients[i] != null && !_clients[i].isFor(initiator) && !_clients[i].isFor(ipToExclude)) {
-        _clients[i].propagateSynchronization(initiator);
+        _clients[i].propagateSynchronization(initiator, sospfType, disconnectInitiator, disconnectVictim);
       }
     }
 
     ClientServiceThread[] clientServicers = _server.getClientServicers();
     for (int i = 0; i < clientServicers.length; ++i) {
       if (clientServicers[i] != null && !clientServicers[i].isFor(initiator) && !clientServicers[i].isFor(ipToExclude)) {
-        clientServicers[i].propagateSynchronization(initiator);
+        clientServicers[i].propagateSynchronization(initiator, sospfType, disconnectInitiator, disconnectVictim);
       }
     }
   }
@@ -392,5 +438,76 @@ public class Router {
 
   public void setInitiatorLatestVersion(String initiator, int version) {
     _initiators.put(initiator, version);
+  }
+
+  private boolean isConnected(int i) {
+    boolean isConnected = false;
+
+    if (_ports[i] != null) {
+      String ip = getRemoteRouterSimulatedIp(i);
+
+      for (int j = 0; j < _clientServers.size(); ++j) {
+        ClientServiceThread cst = _clientServers.get(j);
+
+        if (cst.getRemoteRouterDescription().getSimulatedIPAddress().equals(ip)) {
+          isConnected = true;
+          break;
+        }
+      }
+    }
+
+    return isConnected;
+  }
+
+  private String getRemoteRouterSimulatedIp(int i) {
+    String ip = _ports[i].getRouter1().getSimulatedIPAddress();
+
+    if (ip.equals(_rd.getSimulatedIPAddress())) {
+      ip = _ports[i].getRouter2().getSimulatedIPAddress();
+    }
+
+    return ip;
+  }
+
+  private boolean attach(String processIP, short processPort, String simulatedIP, short weight, int portNumber) {
+    if (!isValidAttach(processPort, simulatedIP)) {
+      return false;
+    }
+
+    RouterDescription routerAttachedDescription = new RouterDescription(processIP, processPort, simulatedIP);
+    Link link = new Link(_rd, routerAttachedDescription, weight);
+    return portNumber == -1 ? addLink(link) : addLink(link, portNumber);
+  }
+
+  private void disconnect(short portNumber, short type) {
+    Link link = _ports[portNumber];
+    if (link == null) {
+      System.out.println("[ERROR] No router is connected to this port.");
+      return;
+    }
+
+    RouterDescription neighborDescription = link.router1.simulatedIPAddress.equals(_rd.simulatedIPAddress) ? link.router2 : link.router1;
+    String neighborIp = neighborDescription.getSimulatedIPAddress();
+
+    for (int i = 0; i < _clients.length; ++i) {
+      if (_clients[i] != null) {
+        _clients[i].propagateSynchronization(_rd.getSimulatedIPAddress(), type, _rd.getSimulatedIPAddress(), neighborIp);
+      }
+    }
+
+    ClientServiceThread[] clientServicers = _server.getClientServicers();
+    for (int i = 0; i < clientServicers.length; ++i) {
+      if (clientServicers[i] != null) {
+        clientServicers[i].propagateSynchronization(_rd.getSimulatedIPAddress(), type, _rd.getSimulatedIPAddress(), neighborIp);
+      }
+    }
+
+    for (ClientServiceThread cst : _clientServers) {
+      if (cst != null) {
+        cst.propagateSynchronization(_rd.getSimulatedIPAddress(), type, _rd.getSimulatedIPAddress(), neighborIp);
+      }
+    }
+
+    removeLink(neighborIp, type);
   }
 }
