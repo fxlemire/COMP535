@@ -61,7 +61,7 @@ public class Server implements Runnable {
         }
 
         try {
-            _serverSocket.close();
+            //_serverSocket.close();
             System.out.println("Server stopped.");
         } catch (Exception e) {
             //e.printStackTrace();

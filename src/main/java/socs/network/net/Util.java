@@ -107,7 +107,9 @@ public class Util {
         }
 
         if (canProceed && router.getInitiatorLatestVersion(initiator) < version) {
-            router.setInitiatorLatestVersion(initiator, version);
+            if (message.srcIP.equals(initiator)) {
+                router.setInitiatorLatestVersion(initiator, version);
+            }
             if (message.sospfType == SOSPFPacket.LSU) {
                 router.synchronize(message.lsaArray);
             }

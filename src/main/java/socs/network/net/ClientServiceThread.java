@@ -101,9 +101,9 @@ public class ClientServiceThread implements Runnable {
             //e.printStackTrace();
         } finally {
             try {
-                _inputStream.close();
-                _outputStream.close();
-                _clientSocket.close();
+                //_inputStream.close();
+                //_outputStream.close();
+                //_clientSocket.close();
                 //System.out.println("...Stopped");
             } catch (Exception e) {
                 //e.printStackTrace();
