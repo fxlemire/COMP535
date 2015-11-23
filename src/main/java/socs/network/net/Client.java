@@ -8,7 +8,6 @@ import socs.network.node.Router;
 import socs.network.node.RouterDescription;
 import socs.network.node.RouterStatus;
 
-import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.Socket;
@@ -24,11 +23,18 @@ public class Client implements Runnable {
     private String _remoteRouterIP;
     private Thread _runner;
 
+    private HeartBeatClient _heartbeat;
+    private TTLClient _ttl;
+
     public Thread getRunner() { return _runner; }
 
     public RouterDescription getRemoteRouterDescription() {
         return _remoteRouterDescription;
     }
+
+    public RouterDescription getRouterDescription() { return _rd; }
+
+    public Router getRouter() { return _router; }
 
     private Client(RouterDescription remoteRouter, Router router, Link link) {
         _link = link;
@@ -71,10 +77,19 @@ public class Client implements Runnable {
             _router.addLinkDescriptionToDatabase(_remoteRouterDescription, _link.getWeight());
             sendMessage(SOSPFPacket.HELLO);
 
+            _heartbeat = new HeartBeatClient(this);
+            _heartbeat.start();
+            _ttl = new TTLClient(this);
+            _ttl.start();
+
             while (true) {
                 message = Util.receiveMessage(_inputStream);
 
                 switch (message.sospfType) {
+                    case SOSPFPacket.HELLO: {
+                        _ttl.restart();
+                        break;
+                    }
                     case SOSPFPacket.LSU: {
                         Util.synchronizeAndPropagate(message, _router);
                         break;
@@ -112,7 +127,8 @@ public class Client implements Runnable {
         }
     }
 
-    private void sendMessage(short messageType) {
+    //hack: public to make it accessible by TTL
+    public void sendMessage(short messageType) {
         //System.out.println("Sending HELLO message to " + _remoteRouterIP + "...");
         SOSPFPacket message = Util.makeMessage(_rd, _remoteRouterDescription, messageType, _router);
         Util.sendMessage(message, _outputStream);

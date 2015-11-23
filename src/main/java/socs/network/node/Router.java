@@ -223,11 +223,6 @@ public class Router {
    * disconnect with all neighbors and quit the program
    */
   private void processQuit() {
-    for (short i = 0; i < _ports.length; ++i) {
-      if (_ports[i] != null) {
-        disconnect(i, SOSPFPacket.ANNIHILATE);
-      }
-    }
     System.exit(1);
   }
 
@@ -480,6 +475,10 @@ public class Router {
   }
 
   private void disconnect(short portNumber, short type) {
+    if (portNumber < 0) {
+      return;
+    }
+
     Link link = _ports[portNumber];
     if (link == null) {
       System.out.println("[ERROR] No router is connected to this port.");
@@ -509,5 +508,60 @@ public class Router {
     }
 
     removeLink(neighborIp, type);
+  }
+
+  //copy-pasta: propagesynchronization arguments are reversed
+  public void disconnect(String ip, short type) {
+    int portNumber = findPortNumber(ip);
+
+    if (portNumber < 0) {
+      return;
+    }
+
+    Link link = _ports[portNumber];
+    if (link == null) {
+      System.out.println("[ERROR] No router is connected to this port.");
+      return;
+    }
+
+    RouterDescription neighborDescription = link.router1.simulatedIPAddress.equals(_rd.simulatedIPAddress) ? link.router2 : link.router1;
+    String neighborIp = neighborDescription.getSimulatedIPAddress();
+
+    for (int i = 0; i < _clients.length; ++i) {
+      if (_clients[i] != null) {
+        _clients[i].propagateSynchronization(_rd.getSimulatedIPAddress(), type, neighborIp, _rd.getSimulatedIPAddress());
+      }
+    }
+
+    ClientServiceThread[] clientServicers = _server.getClientServicers();
+    for (int i = 0; i < clientServicers.length; ++i) {
+      if (clientServicers[i] != null) {
+        clientServicers[i].propagateSynchronization(_rd.getSimulatedIPAddress(), type, neighborIp, _rd.getSimulatedIPAddress());
+      }
+    }
+
+    for (ClientServiceThread cst : _clientServers) {
+      if (cst != null) {
+        cst.propagateSynchronization(_rd.getSimulatedIPAddress(), type, neighborIp, _rd.getSimulatedIPAddress());
+      }
+    }
+
+    removeLink(neighborIp, type);
+  }
+
+  private short findPortNumber(String ip) {
+    short portNumber = -1;
+
+    for (short i = 0; i < _ports.length; ++i) {
+      Link link = _ports[i];
+      if (link != null) {
+        if (link.getRouter1().getSimulatedIPAddress().equals(ip) || link.getRouter2().getSimulatedIPAddress().equals(ip)) {
+          portNumber = i;
+          break;
+        }
+      }
+    }
+
+    return portNumber;
   }
 }
