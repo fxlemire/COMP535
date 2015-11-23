@@ -8,7 +8,6 @@ import socs.network.node.Router;
 import socs.network.node.RouterDescription;
 import socs.network.node.RouterStatus;
 
-import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.Socket;
@@ -23,6 +22,9 @@ public class ClientServiceThread implements Runnable {
     Socket _clientSocket;
     Thread _runner;
 
+    HeartBeatServer _heartbeat;
+    TTLServer _ttl;
+
     ClientServiceThread(Router r, Socket s) {
         _router = r;
         _clientSocket = s;
@@ -32,6 +34,10 @@ public class ClientServiceThread implements Runnable {
     public RouterDescription getRemoteRouterDescription() {
         return _remoteRouterDescription;
     }
+
+    public RouterDescription getRouterDescription() { return _router.getRd(); }
+
+    public Router getRouter() { return _router; }
 
     public Thread getRunner() { return _runner; }
 
@@ -45,27 +51,36 @@ public class ClientServiceThread implements Runnable {
 
                 switch (receivedMessage.sospfType) {
                     case SOSPFPacket.HELLO: {
-                        _remoteRouterDescription = new RouterDescription(
-                                receivedMessage.srcProcessIP,
-                                receivedMessage.srcProcessPort,
-                                receivedMessage.srcIP);
+                        if (_ttl == null) {
+                            _remoteRouterDescription = new RouterDescription(
+                                    receivedMessage.srcProcessIP,
+                                    receivedMessage.srcProcessPort,
+                                    receivedMessage.srcIP);
 
-                        short weight = getLinkWeight(receivedMessage);
+                            short weight = getLinkWeight(receivedMessage);
 
-                        _remoteRouterDescription = updateLink(_remoteRouterDescription, weight, receivedMessage.lsaArray);
+                            _remoteRouterDescription = updateLink(_remoteRouterDescription, weight, receivedMessage.lsaArray);
 
-                        RouterStatus routerAttachedStatus = _remoteRouterDescription.getStatus();
+                            RouterStatus routerAttachedStatus = _remoteRouterDescription.getStatus();
 
-                        if (routerAttachedStatus == RouterStatus.INIT || routerAttachedStatus == RouterStatus.OVER_BURDENED) {
-                            final short messageType = routerAttachedStatus == RouterStatus.INIT ? SOSPFPacket.HELLO : SOSPFPacket.OVER_BURDENED;
-                            SOSPFPacket outgoingMessage = Util.makeMessage(_router.getRd(), _remoteRouterDescription, messageType, _router);
-                            Util.sendMessage(outgoingMessage, _outputStream);
-                        }
+                            if (routerAttachedStatus == RouterStatus.INIT || routerAttachedStatus == RouterStatus.OVER_BURDENED) {
+                                final short messageType = routerAttachedStatus == RouterStatus.INIT ? SOSPFPacket.HELLO : SOSPFPacket.OVER_BURDENED;
+                                SOSPFPacket outgoingMessage = Util.makeMessage(_router.getRd(), _remoteRouterDescription, messageType, _router);
+                                Util.sendMessage(outgoingMessage, _outputStream);
+                            }
 
-                        if (routerAttachedStatus == RouterStatus.TWO_WAY) {
-                            SOSPFPacket outgoingMessage = Util.makeMessage(_router.getRd(), _remoteRouterDescription, SOSPFPacket.LSU, _router);
-                            Util.sendMessage(outgoingMessage, _outputStream);
-                            _router.propagateSynchronization(outgoingMessage.lsaInitiator, receivedMessage.srcIP, SOSPFPacket.LSU, null, null);
+                            if (routerAttachedStatus == RouterStatus.TWO_WAY) {
+                                SOSPFPacket outgoingMessage = Util.makeMessage(_router.getRd(), _remoteRouterDescription, SOSPFPacket.LSU, _router);
+                                Util.sendMessage(outgoingMessage, _outputStream);
+                                _router.propagateSynchronization(outgoingMessage.lsaInitiator, receivedMessage.srcIP, SOSPFPacket.LSU, null, null);
+
+                                _heartbeat = new HeartBeatServer(this);
+                                _heartbeat.start();
+                                _ttl = new TTLServer(this);
+                                _ttl.start();
+                            }
+                        } else {
+                            _ttl.restart();
                         }
                         break;
                     }
@@ -214,6 +229,12 @@ public class ClientServiceThread implements Runnable {
             message.lsaInitiator = initiator;
         }
 
+        Util.sendMessage(message, _outputStream);
+    }
+
+    public void sendMessage(short messageType) {
+        //System.out.println("Sending HELLO message to " + _remoteRouterIP + "...");
+        SOSPFPacket message = Util.makeMessage(_router.getRd(), _remoteRouterDescription, messageType, _router);
         Util.sendMessage(message, _outputStream);
     }
 
